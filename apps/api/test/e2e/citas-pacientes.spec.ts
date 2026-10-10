@@ -22,6 +22,14 @@ describe('Pacientes y citas', () => {
   afterAll(async () => app.close());
 
   describe('pacientes', () => {
+    it('busca por nombre sin distinguir tildes ni mayúsculas, y trata los comodines como texto', async () => {
+      const res = await recepcion.get('/patients?q=martinez%20gomez');
+      expect(res.body.items.map((p: { lastName: string }) => p.lastName)).toContain('Martínez Gómez');
+      const wildcard = await recepcion.get(`/patients?q=${encodeURIComponent('%')}`);
+      expect(wildcard.status).toBe(200);
+      expect(wildcard.body.total).toBe(0);
+    });
+
     it('impide duplicar el documento de identidad', async () => {
       const existing = await prisma.patient.findFirstOrThrow({ where: { documentNumber: { not: null } } });
       const res = await recepcion.post('/patients', { firstName: 'Otro', lastName: 'Nombre', documentType: 'CEDULA', documentNumber: existing.documentNumber });

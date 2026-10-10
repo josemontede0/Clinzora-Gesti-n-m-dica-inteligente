@@ -1,0 +1,55 @@
+# MediGest — entorno con Docker Compose (desarrollo o servidor propio).
+# Uso:  cp .env.docker.example .env.docker  (complete los secretos)  &&  docker compose --env-file .env.docker up -d --build
+# En producción coloque un proxy HTTPS (Caddy/Nginx) delante del servicio "web"; no exponga "api" ni "db".
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medigest
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
+      POSTGRES_DB: medigest
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medigest"]
+      interval: 10s
+      retries: 5
+
+  api:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      API_HOST: 0.0.0.0
+      WEB_ORIGIN: ${WEB_ORIGIN:?Defina WEB_ORIGIN}
+      DATABASE_URL: postgresql://medigest:${POSTGRES_PASSWORD}@db:5432/medigest?schema=public
+      SESSION_SECRET: ${SESSION_SECRET:?}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?}
+      FILE_URL_SECRET: ${FILE_URL_SECRET:?}
+      STORAGE_DIR: /data/storage
+      NOTIFICATIONS_MODE: ${NOTIFICATIONS_MODE:-test}
+      PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:-none}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - storage:/data/storage
+    expose: ["3001"]
+
+  web:
+    build: { context: ., dockerfile: infra/docker/web.Dockerfile, args: { API_URL: http://api:3001 } }
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      API_URL: http://api:3001
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  pgdata:
+  storage:

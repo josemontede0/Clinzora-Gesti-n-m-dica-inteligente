@@ -36,8 +36,21 @@ export class PatientsService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Búsqueda por nombre, expediente, documento o teléfono. */
-  searchWhere(user: AuthUser, q?: string, status?: string): Prisma.PatientWhereInput {
+  /** Ids de pacientes cuyo nombre contiene todas las palabras, sin distinguir tildes ni mayúsculas. */
+  private async nameMatchIds(organizationId: string, words: string[]): Promise<string[]> {
+    if (!words.length) return [];
+    const conds = words.map((w) => {
+      // Escapa los comodines de LIKE escritos por el usuario.
+      const pattern = `%${w.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+      return Prisma.sql`lower(f_unaccent("firstName" || ' ' || "lastName")) LIKE lower(f_unaccent(${pattern}))`;
+    });
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Patient" WHERE "organizationId" = ${organizationId}::uuid AND ${Prisma.join(conds, ' AND ')} LIMIT 1000`;
+    return rows.map((r) => r.id);
+  }
+
+  /** Búsqueda por nombre (sin tildes), expediente, documento o teléfono. */
+  async searchWhere(user: AuthUser, q?: string, status?: string): Promise<Prisma.PatientWhereInput> {
     const where: Prisma.PatientWhereInput = { organizationId: user.organizationId };
     if (status) where.status = status as never;
     else where.status = { not: 'MERGED' };
@@ -45,22 +58,19 @@ export class PatientsService {
       const doc = normalizeDocument(q);
       const phone = normalizePhone(q);
       const words = q.trim().split(/\s+/).filter(Boolean).slice(0, 4);
+      const ids = await this.nameMatchIds(user.organizationId, words);
       where.OR = [
         { recordNumber: { equals: q.trim().toUpperCase() } },
         ...(doc ? [{ documentNumber: doc }] : []),
         ...(phone && phone.length >= 4 ? [{ phoneNormalized: { contains: phone } }] : []),
-        {
-          AND: words.map((w) => ({
-            OR: [{ firstName: { contains: w, mode: 'insensitive' as const } }, { lastName: { contains: w, mode: 'insensitive' as const } }],
-          })),
-        },
+        { id: { in: ids } },
       ];
     }
     return where;
   }
 
   async list(user: AuthUser, q: ListQuery & { status?: string }) {
-    const where = this.searchWhere(user, q.q, q.status);
+    const where = await this.searchWhere(user, q.q, q.status);
     const [items, total] = await Promise.all([
       this.prisma.patient.findMany({ where, select: listSelect, orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }], ...paginate(q) }),
       this.prisma.patient.count({ where }),
@@ -71,7 +81,7 @@ export class PatientsService {
   async quickSearch(user: AuthUser, q: string) {
     if (!q || q.trim().length < 2) return [];
     return this.prisma.patient.findMany({
-      where: this.searchWhere(user, q, 'ACTIVE'),
+      where: await this.searchWhere(user, q, 'ACTIVE'),
       select: {
         ...listSelect,
         insurances: { where: { active: true }, select: { id: true, affiliateNumber: true, isPrimary: true, plan: { select: { name: true, insurer: { select: { name: true } } } } } },

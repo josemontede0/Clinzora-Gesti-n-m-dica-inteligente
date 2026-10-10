@@ -379,6 +379,11 @@ async function main() {
   await prisma.auditLog.create({ data: { organizationId: O, action: 'SEED_DEMO', entity: 'Organization', entityId: O, details: { nota: 'Datos ficticios de demostración' } } });
 
   // ── Credenciales de desarrollo ──
+  // Las pruebas automáticas usan su propia contraseña fija y no deben sobrescribir el archivo de desarrollo.
+  if (config.NODE_ENV === 'test') {
+    console.log('Seed de pruebas completado.');
+    return;
+  }
   const credsDir = join(API_ROOT, '..', '..', 'infra');
   mkdirSync(credsDir, { recursive: true });
   const lines = [

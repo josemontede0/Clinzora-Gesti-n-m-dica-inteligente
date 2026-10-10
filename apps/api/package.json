@@ -7,7 +7,7 @@
     "dev": "tsc -p tsconfig.build.json && node --enable-source-maps dist/src/main.js",
     "start": "node --enable-source-maps dist/src/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

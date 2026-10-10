@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.next
+infra/pgdata
+infra/storage
+infra/test-*
+infra/backups
+infra/*.log
+**/.env
+.git
