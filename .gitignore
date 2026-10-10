@@ -15,3 +15,5 @@ infra/backups/
 *.tsbuildinfo
 next-env.d.ts
 infra/seed-credentials.txt
+infra/test-storage/
+infra/test-mail-outbox/
