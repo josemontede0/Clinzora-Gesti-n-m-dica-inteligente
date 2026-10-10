@@ -24,3 +24,4 @@ apps/web/playwright-report/
 infra/credenciales-demo.xlsx
 ~$*
 *.xlsx.tmp
+infra/credenciales-*.xlsx
