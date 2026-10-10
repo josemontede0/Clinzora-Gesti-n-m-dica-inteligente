@@ -89,7 +89,7 @@ EOF
 fi
 [ -f "$CONF/backup.pass" ] || { rand 40 > "$CONF/backup.pass"; chmod 600 "$CONF/backup.pass"; }
 ln -sf "$CONF/api.env" "$APP/apps/api/.env"
-printf 'API_URL=http://127.0.0.1:%s\n' "$API_PORT" > "$APP/apps/web/.env"
+printf 'API_URL=http://127.0.0.1:%s\nAPP_URL=https://%s\n' "$API_PORT" "$DOMAIN" > "$APP/apps/web/.env"
 
 log "Dependencias y compilación"
 cd "$APP"
@@ -107,14 +107,14 @@ if [ "${SEED_DEMO:-0}" = "1" ]; then
     echo "La base ya tiene datos: no se carga la demostración."
   fi
 fi
-API_URL="http://127.0.0.1:$API_PORT" NEXT_TELEMETRY_DISABLED=1 pnpm --filter @medigest/web build
+API_URL="http://127.0.0.1:$API_PORT" APP_URL="https://$DOMAIN" NEXT_TELEMETRY_DISABLED=1 pnpm --filter @medigest/web build
 
 log "Procesos (PM2)"
 if pm2 describe clinzora-api >/dev/null 2>&1; then
-  pm2 restart clinzora-api clinzora-web --update-env
+  APP_URL="https://$DOMAIN" pm2 restart clinzora-api clinzora-web --update-env
 else
   NODE_ENV=production pm2 start dist/src/main.js --name clinzora-api --cwd "$APP/apps/api" --interpreter "$NODE_BIN" --node-args="--enable-source-maps" --max-memory-restart 600M
-  NODE_ENV=production pm2 start node_modules/next/dist/bin/next --name clinzora-web --cwd "$APP/apps/web" --interpreter "$NODE_BIN" --max-memory-restart 600M -- start -p "$WEB_PORT" -H 127.0.0.1
+  NODE_ENV=production APP_URL="https://$DOMAIN" pm2 start node_modules/next/dist/bin/next --name clinzora-web --cwd "$APP/apps/web" --interpreter "$NODE_BIN" --max-memory-restart 600M -- start -p "$WEB_PORT" -H 127.0.0.1
 fi
 pm2 save --force >/dev/null
 
@@ -155,5 +155,8 @@ log "Verificación"
 for i in $(seq 1 30); do curl -sf "http://127.0.0.1:$API_PORT/health" >/dev/null && break; sleep 2; done
 curl -sf "http://127.0.0.1:$API_PORT/health" && echo
 curl -s -o /dev/null -w "web local: %{http_code}\n" -H "Host: $DOMAIN" http://127.0.0.1/login
+# La redirección al login debe usar el dominio público, nunca el host interno.
+LOC="$(curl -s -o /dev/null -w '%{redirect_url}' -H "Host: $DOMAIN" "http://127.0.0.1:$WEB_PORT/pacientes")"
+case "$LOC" in "https://$DOMAIN/"*) echo "redirección al login: $LOC" ;; *) echo "ERROR: la redirección al login no usa el dominio público ($LOC)" >&2; exit 1 ;; esac
 echo "Listo. Si el DNS ya apunta aquí, active HTTPS con:"
 echo "  certbot --nginx -d $DOMAIN --non-interactive --agree-tos --redirect --no-eff-email"

@@ -82,4 +82,10 @@ test.describe('Flujos principales en la interfaz', () => {
     await page.goto('/facturacion');
     await expect(page).toHaveURL(/\/login\?next=%2Ffacturacion/);
   });
+
+  test('detrás de un proxy, la redirección al login usa el dominio público y no el host interno', async ({ request }) => {
+    const res = await request.get('/pacientes', { maxRedirects: 0, headers: { Host: 'clinzora.ejemplo.test', 'X-Forwarded-Proto': 'https' } });
+    expect(res.status()).toBe(307);
+    expect(res.headers()['location']).toBe('https://clinzora.ejemplo.test/login?next=%2Fpacientes');
+  });
 });
