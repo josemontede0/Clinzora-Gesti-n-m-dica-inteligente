@@ -14,6 +14,7 @@ import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 import { ClinzoraLogo } from './clinzora-logo';
 import { PatientSearch } from './patient-search';
+import { InstallAppButton } from './pwa';
 
 interface NavItem {
   href: string;
@@ -154,6 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <PatientSearch compact className="max-w-md flex-1" placeholder={t('header.search')} onSelect={(p) => router.push(`/pacientes/${p.id}`)} />
           )}
           <div className="ml-auto flex items-center gap-2">
+            <InstallAppButton className="hidden md:inline-flex" />
             {me && me.branches.length > 1 && (
               <select value={branchId} onChange={(e) => setBranchId(e.target.value)} aria-label={t('header.branch')} className="hidden h-9 rounded-lg border border-border bg-white px-2 text-sm md:block">
                 {me.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}

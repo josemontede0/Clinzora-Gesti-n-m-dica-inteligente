@@ -28,4 +28,5 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/((?!backend|_next|favicon.ico|.*\\.(?:png|svg|ico|jpg|webp)$).*)'] };
+// Recursos públicos de la PWA (sw.js, offline.html, manifest) e imágenes no pasan por el control de sesión.
+export const config = { matcher: ['/((?!backend|_next|favicon.ico|sw\\.js|offline\\.html|manifest\\.webmanifest|.*\\.(?:png|svg|ico|jpg|webp)$).*)'] };

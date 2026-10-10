@@ -36,6 +36,16 @@ Plataforma para consultorios y centros médicos de República Dominicana. Cubre 
 
 La marca está en `apps/web/public/brand/` (SVG oficiales, sin modificar) y los favicons en `apps/web/src/app/`. El componente `<ClinzoraLogo variant theme height />` (`apps/web/src/components/clinzora-logo.tsx`) elige la variante: horizontal sin slogan en el menú, ícono con el menú contraído y en el encabezado móvil, y vertical en el acceso. Las variantes blancas van sobre fondos oscuros. Los colores (`--cz-navy`, `--cz-teal`, `--cz-blue`, `--cz-gray`, `--cz-bg`, `--cz-gradient`) y la fuente Poppins están en `globals.css`. Los PDF usan el PNG `apps/api/assets/clinzora-logo-horizontal.png`.
 
+## Aplicación instalable (PWA)
+
+Clinzora se instala como app en Android, iPhone/iPad (Safari > Compartir > Agregar a pantalla de inicio), Windows y macOS (botón **Instalar app** en el encabezado o en el login). Incluye manifest con atajos (Agenda, Sala de espera, Pacientes, Caja), íconos y una página sin conexión.
+
+Por privacidad, el service worker (`apps/web/public/sw.js`) **solo guarda archivos estáticos públicos**. Nunca guarda respuestas de la API ni páginas con datos de pacientes: sin conexión se muestra la página "Sin conexión" y no información clínica.
+
+## Recibos de caja
+
+Al registrar un cobro se ofrece **Imprimir** o **Descargar** el recibo en PDF, en ticket de 80 mm (impresora térmica) o en carta. **Caja > Historial de recibos** permite buscar por número, paciente o expediente, con filtros de fecha y estado, y **reimprimir**. Desde la segunda impresión el PDF sale marcado como *REIMPRESIÓN (copia N)*, y cada impresión queda en la auditoría (quién, cuándo, formato). Un pago revertido sale marcado como *REVERTIDO — SIN VALOR*. El recibo incluye el monto en letras e indica que no es un comprobante fiscal.
+
 ## Arquitectura
 
 Monorepo con pnpm:

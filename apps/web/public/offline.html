@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es-DO">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0B2E4F" />
+    <title>Sin conexión · Clinzora</title>
+    <style>
+      :root { --cz-navy: #0b2e4f; --cz-blue: #0a6fd1; --cz-gray: #5b6b7f; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #f5f8fb; color: var(--cz-navy);
+        font-family: Poppins, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 24px; }
+      main { max-width: 420px; text-align: center; }
+      img { height: 120px; margin-bottom: 24px; }
+      h1 { font-size: 1.4rem; margin: 0 0 8px; }
+      p { color: var(--cz-gray); line-height: 1.5; margin: 0 0 24px; }
+      button { background: var(--cz-blue); color: #fff; border: 0; border-radius: 8px; padding: 12px 20px; font: inherit; font-weight: 600; cursor: pointer; }
+      small { display: block; margin-top: 32px; color: var(--cz-gray); font-size: 0.75rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/brand/clinzora-logo-vertical.svg" alt="Clinzora" />
+      <h1>Sin conexión a Internet</h1>
+      <p>Clinzora necesita conexión para mostrar y guardar información. Por la privacidad de los pacientes, los datos no se almacenan en este dispositivo.</p>
+      <button onclick="location.reload()">Reintentar</button>
+      <small>Clinzora · un producto de KonviaRD</small>
+    </main>
+  </body>
+</html>

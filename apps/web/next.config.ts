@@ -18,7 +18,11 @@ const nextConfig: NextConfig = {
     return [{ source: '/backend/:path*', destination: `${API_URL}/:path*` }];
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // El service worker no debe quedar en caché del navegador: así las actualizaciones llegan de inmediato.
+      { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }, { key: 'Content-Type', value: 'application/javascript; charset=utf-8' }] },
+    ];
   },
   experimental: { middlewareClientMaxBodySize: '20mb' },
 };

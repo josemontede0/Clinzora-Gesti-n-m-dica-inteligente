@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ClinzoraLogo } from '@/components/clinzora-logo';
+import { InstallAppButton } from '@/components/pwa';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/form';
 import { Notice } from '@/components/ui/layout';
@@ -66,6 +67,7 @@ function LoginForm() {
           <p className="text-center text-sm">
             <Link href="/recuperar" className="text-navy-600 hover:underline">¿Olvidó su contraseña?</Link>
           </p>
+          <div className="flex justify-center pt-2"><InstallAppButton /></div>
         </form>
       ) : (
         <form onSubmit={submitMfa} className="mt-6 space-y-4" noValidate>
