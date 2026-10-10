@@ -1,0 +1,27 @@
+# Proxy HTTPS de producción (Caddy obtiene y renueva certificados de Let's Encrypt automáticamente).
+# Reemplace el dominio. El DNS del dominio debe apuntar al servidor y los puertos 80/443 deben estar abiertos.
+# En una red interna sin dominio público use "tls internal" (certificado de una CA propia) en lugar del automático.
+medigest.ejemplo.do {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+
+	# Límite de subida coherente con MAX_UPLOAD_MB (15 MB) + margen.
+	request_body {
+		max_size 20MB
+	}
+
+	reverse_proxy web:3000
+	log {
+		output file /data/access.log {
+			roll_size 20MiB
+			roll_keep 10
+		}
+	}
+}

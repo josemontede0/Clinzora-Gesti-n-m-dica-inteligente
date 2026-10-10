@@ -100,7 +100,7 @@ export default function InsurancePage() {
             <CardHeader title="Cuentas por cobrar por aseguradora" description="Saldo de reclamaciones abiertas (reconocido − pagado) y montos de seguro facturados aún sin reclamar." />
             {receivables.loading ? <LoadingBlock /> : receivables.data?.length ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead><tr className="border-b border-border bg-slate-50/70 text-left text-xs uppercase text-muted"><th className="px-5 py-2">Aseguradora</th><th className="px-5 py-2 text-right">Reclamaciones abiertas</th><th className="px-5 py-2 text-right">Saldo reclamado</th><th className="px-5 py-2 text-right">Sin reclamar</th><th className="px-5 py-2 text-right">Glosas</th><th className="px-5 py-2 text-right">Pagos sin conciliar</th></tr></thead>
                   <tbody className="divide-y divide-border">
                     {receivables.data.map((r) => (

@@ -53,6 +53,34 @@ export class SettingsController {
     return saved;
   }
 
+  /**
+   * Expedientes que superan el plazo de retención configurado (sin actividad desde hace N años).
+   * Solo informa: la eliminación de historia clínica requiere un procedimiento legal validado y no se automatiza.
+   */
+  @Get('retention')
+  @RequirePermissions('settings.manage')
+  async retention(@CurrentUser() user: AuthUser) {
+    const { dataRetentionYears } = await this.settings.operational(user.organizationId);
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - dataRetentionYears);
+    const where = {
+      organizationId: user.organizationId,
+      status: { not: 'MERGED' as const },
+      OR: [{ lastVisitAt: { lt: cutoff } }, { lastVisitAt: null, createdAt: { lt: cutoff } }],
+    };
+    const [total, sample] = await Promise.all([
+      this.prisma.patient.count({ where }),
+      this.prisma.patient.findMany({
+        where,
+        select: { id: true, recordNumber: true, firstName: true, lastName: true, lastVisitAt: true, createdAt: true, status: true },
+        orderBy: [{ lastVisitAt: 'asc' }],
+        take: 100,
+      }),
+    ]);
+    await this.audit.log({ action: 'REVISION_RETENCION', entity: 'Patient', details: { anos: dataRetentionYears, encontrados: total } });
+    return { retentionYears: dataRetentionYears, cutoff: cutoff.toISOString(), total, patients: sample };
+  }
+
   // ── Sucursales y consultorios ──
 
   @Get('branches')

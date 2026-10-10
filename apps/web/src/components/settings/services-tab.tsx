@@ -42,7 +42,7 @@ export function ServicesTab() {
         <CardHeader title="Servicios y tarifas" description="Cada cambio de precio crea una nueva vigencia; las facturas emitidas conservan el precio con que se emitieron." actions={manage && <Button size="sm" variant="outline" onClick={() => setSvc({ category: 'CONSULTA', durationMin: 30, taxRate: '0', active: true })}><Plus /> Servicio</Button>} />
         {services.loading ? <LoadingBlock /> : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead><tr className="border-b border-border bg-slate-50/70 text-left text-xs uppercase text-muted"><th className="px-5 py-2">Código</th><th className="px-5 py-2">Servicio</th><th className="px-5 py-2">Especialidad</th><th className="px-5 py-2 text-right">Particular</th><th className="px-5 py-2">Tarifas de seguro</th><th className="px-5 py-2" /></tr></thead>
               <tbody className="divide-y divide-border">
                 {services.data?.map((s) => {

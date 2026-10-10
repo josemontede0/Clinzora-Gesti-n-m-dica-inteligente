@@ -94,6 +94,12 @@ const contactSchema = z.object({
   documentNumber: optionalText(30),
 });
 
+/** Un contacto con el nombre vacío equivale a "sin contacto" (los formularios envían los campos vacíos). */
+const optionalContact = z.preprocess(
+  (v) => (v && typeof v === 'object' && !String((v as { name?: unknown }).name ?? '').trim() ? null : v),
+  contactSchema.nullable().optional(),
+);
+
 export const patientBaseSchema = z.object({
   firstName: trimmed(80).min(1, 'Nombres requeridos'),
   lastName: trimmed(80).min(1, 'Apellidos requeridos'),
@@ -107,8 +113,8 @@ export const patientBaseSchema = z.object({
   city: optionalText(80),
   province: optionalText(80),
   adminNotes: optionalText(1000),
-  emergencyContact: contactSchema.optional().nullable(),
-  guardian: contactSchema.optional().nullable(),
+  emergencyContact: optionalContact,
+  guardian: optionalContact,
 });
 
 const patientRefinements = <T extends z.ZodType<z.infer<typeof patientBaseSchema>>>(schema: T) =>

@@ -1,0 +1,19 @@
+# Instalación sin Docker: /etc/systemd/system/medigest-api.service
+[Unit]
+Description=MediGest API
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=medigest
+WorkingDirectory=/opt/medigest/apps/api
+EnvironmentFile=/etc/medigest/api.env
+ExecStart=/usr/bin/node --enable-source-maps dist/src/main.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

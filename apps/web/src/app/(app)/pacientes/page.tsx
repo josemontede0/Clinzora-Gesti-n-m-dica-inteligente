@@ -65,7 +65,7 @@ export default function PatientsPage() {
           mobileCard={(r) => (
             <div>
               <p className="font-medium">{r.lastName}, {r.firstName}</p>
-              <p className="text-xs text-muted">{r.recordNumber} · {formatCedula(r.documentNumber)} · {r.phone ?? 'sin teléfono'}</p>
+              <p className="text-xs text-muted">{r.recordNumber} · {r.documentNumber ? formatCedula(r.documentNumber) : 'Sin documento'} · {r.phone ?? 'sin teléfono'}</p>
             </div>
           )}
           empty={<EmptyState title="No se encontraron pacientes" description={filters.q ? 'Pruebe con otro término o registre un paciente nuevo.' : undefined} action={can('patients.write') ? <Button asChild variant="outline"><Link href="/pacientes/nuevo">Registrar paciente</Link></Button> : undefined} />}

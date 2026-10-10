@@ -43,6 +43,15 @@
   }
 }
 
+/* Flecha de los selectores nativos */
+.mg-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 16px;
+}
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
@@ -68,3 +77,7 @@
 .rbc-off-range-bg { background: #fafbfc; }
 .rbc-show-more { color: var(--color-navy-600); font-weight: 600; }
 .rbc-agenda-view table.rbc-agenda-table { border: none; }
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td { padding: 8px 10px; vertical-align: top; }
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-date-cell { font-weight: 600; color: var(--color-navy-700); background: #f8fafc; }
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-time-cell { color: var(--color-muted); white-space: nowrap; }
+.rbc-agenda-view table.rbc-agenda-table tbody > tr + tr { border-top: 1px solid var(--color-border); }

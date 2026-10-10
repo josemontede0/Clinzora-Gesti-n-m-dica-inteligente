@@ -98,18 +98,18 @@ export default function InvoicePage() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead><tr className="border-b border-border text-left text-xs uppercase text-muted"><th className="py-2">Servicio</th><th className="py-2 text-right">Cant.</th><th className="py-2 text-right">Precio</th><th className="py-2 text-right">Desc.</th><th className="py-2 text-right">Total</th><th className="py-2 text-right">Seguro</th><th className="py-2 text-right">Paciente</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   {inv.items.map((i) => (
                     <tr key={i.id}>
                       <td className="py-2">{i.description}{i.claimItem && <Badge tone="navy" className="ml-2">En reclamación</Badge>}</td>
-                      <td className="py-2 text-right tabular-nums">{i.quantity}</td>
-                      <td className="py-2 text-right tabular-nums">{formatMoney(i.unitPrice, cur)}</td>
-                      <td className="py-2 text-right tabular-nums">{formatMoney(i.discount, cur)}</td>
-                      <td className="py-2 text-right tabular-nums">{formatMoney(i.total, cur)}</td>
-                      <td className="py-2 text-right tabular-nums">{formatMoney(i.insuranceAmount, cur)}</td>
-                      <td className="py-2 text-right tabular-nums">{formatMoney(i.patientAmount, cur)}</td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{i.quantity}</td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{formatMoney(i.unitPrice, cur)}</td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{formatMoney(i.discount, cur)}</td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{formatMoney(i.total, cur)}</td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{formatMoney(i.insuranceAmount, cur)}</td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{formatMoney(i.patientAmount, cur)}</td>
                     </tr>
                   ))}
                 </tbody>

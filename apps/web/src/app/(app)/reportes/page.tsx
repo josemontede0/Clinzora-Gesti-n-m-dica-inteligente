@@ -80,7 +80,7 @@ export default function ReportsPage() {
             <CardHeader title={data.title} description={`${data.rows.length} registro(s)`} />
             {data.rows.length ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead><tr className="border-b border-border bg-slate-50/70 text-left text-xs uppercase text-muted">{data.columns.map((c) => <th key={c.key} className={`whitespace-nowrap px-4 py-2 ${c.money ? 'text-right' : ''}`}>{c.label}</th>)}</tr></thead>
                   <tbody className="divide-y divide-border">
                     {data.rows.slice(0, 500).map((r, i) => (

@@ -251,19 +251,21 @@ async function main() {
         },
       },
     });
+    // Las marcas de tiempo clínicas corresponden a la consulta, no al momento de sembrar.
+    const noteAt = new Date(startsAt.getTime() + 15 * 60000);
     const enc = await prisma.medicalEncounter.create({
       data: {
         organizationId: O, branchId: branch.id, patientId: opts.patient.id, professionalId: opts.pro.id, appointmentId: appt.id, status: 'FIRMADO', startedAt: startsAt,
         signedAt: new Date(startsAt.getTime() + 25 * 60000), signedById: opts.proUser, createdById: opts.proUser,
         notes: {
           create: [
-            { section: 'MOTIVO_CONSULTA', content: 'Control de rutina (contenido ficticio de demostración).', authorId: opts.proUser },
-            { section: 'EVALUACION', content: opts.note, authorId: opts.proUser },
-            { section: 'PLAN', content: 'Continuar tratamiento y control en 3 meses (ficticio).', authorId: opts.proUser },
+            { section: 'MOTIVO_CONSULTA', content: 'Control de rutina (contenido ficticio de demostración).', authorId: opts.proUser, createdAt: noteAt, updatedAt: noteAt },
+            { section: 'EVALUACION', content: opts.note, authorId: opts.proUser, createdAt: noteAt, updatedAt: noteAt },
+            { section: 'PLAN', content: 'Continuar tratamiento y control en 3 meses (ficticio).', authorId: opts.proUser, createdAt: noteAt, updatedAt: noteAt },
           ],
         },
-        vitals: { create: { recordedById: users.enfermeria.id, systolic: 128, diastolic: 82, heartRate: 76, respiratoryRate: 16, temperatureC: D('36.6'), spo2: 98, weightKg: D('78.5'), heightCm: D('172'), bmi: D('26.53') } },
-        diagnoses: { create: { description: opts.dx, type: 'PRINCIPAL', createdById: opts.proUser } },
+        vitals: { create: { recordedById: users.enfermeria.id, recordedAt: new Date(startsAt.getTime() + 5 * 60000), systolic: 128, diastolic: 82, heartRate: 76, respiratoryRate: 16, temperatureC: D('36.6'), spo2: 98, weightKg: D('78.5'), heightCm: D('172'), bmi: D('26.53') } },
+        diagnoses: { create: { description: opts.dx, type: 'PRINCIPAL', createdById: opts.proUser, createdAt: noteAt } },
       },
     });
     await prisma.patient.update({ where: { id: opts.patient.id }, data: { lastVisitAt: startsAt } });

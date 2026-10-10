@@ -16,7 +16,7 @@ Textarea.displayName = 'Textarea';
 
 /** Select nativo: accesible y usable en móviles (selector del sistema). */
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(({ className, children, ...props }, ref) => (
-  <select ref={ref} className={cn(field, 'h-10 pr-8 appearance-none bg-[url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%2364748b%27 stroke-width=%272%27%3E%3Cpath d=%27m6 9 6 6 6-6%27/%3E%3C/svg%3E")] bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat', className)} {...props}>
+  <select ref={ref} className={cn(field, 'mg-select h-10 pr-9', className)} {...props}>
     {children}
   </select>
 ));
@@ -28,16 +28,22 @@ export const Label = React.forwardRef<React.ElementRef<typeof LabelPrimitive.Roo
 Label.displayName = 'Label';
 
 export function Field({ label, error, hint, required, children, className, htmlFor }: { label?: string; error?: string; hint?: string; required?: boolean; children: React.ReactNode; className?: string; htmlFor?: string }) {
+  // Asocia la etiqueta con el control (accesibilidad y pruebas por etiqueta) aunque no se pase htmlFor.
+  const autoId = React.useId();
+  const child = React.isValidElement<{ id?: string; 'aria-describedby'?: string }>(children) ? children : null;
+  const id = htmlFor ?? child?.props.id ?? autoId;
+  const messageId = `${id}-msg`;
+  const content = child && !child.props.id ? React.cloneElement(child, { id, 'aria-describedby': error || hint ? messageId : undefined }) : children;
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
-        <Label htmlFor={htmlFor}>
+        <Label htmlFor={id}>
           {label}
           {required && <span className="ml-0.5 text-red-500">*</span>}
         </Label>
       )}
-      {children}
-      {error ? <p className="text-xs text-red-600">{error}</p> : hint ? <p className="text-xs text-muted">{hint}</p> : null}
+      {content}
+      {error ? <p id={messageId} className="text-xs text-red-600">{error}</p> : hint ? <p id={messageId} className="text-xs text-muted">{hint}</p> : null}
     </div>
   );
 }

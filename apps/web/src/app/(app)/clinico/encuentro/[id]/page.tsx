@@ -204,7 +204,8 @@ export default function EncounterPage() {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        {/* En móvil los signos vitales van primero: es lo que enfermería registra al llegar el paciente. */}
+        <div className="order-first space-y-6 xl:order-none">
           <Card>
             <CardHeader title="Signos vitales" description={v ? `Último registro ${formatDateTime(v.recordedAt)}` : undefined} />
             <CardBody className="space-y-4">

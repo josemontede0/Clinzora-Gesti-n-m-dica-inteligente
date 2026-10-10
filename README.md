@@ -171,6 +171,7 @@ Las tareas periódicas (cola de notificaciones cada 20 s) arrancan con la API. S
 ```bash
 pnpm test           # unitarias (paquete compartido + backend) — crea y siembra la base de pruebas
 pnpm test:e2e       # integración y extremo a extremo contra PostgreSQL (TEST_DATABASE_URL)
+pnpm test:ui        # interfaz con Playwright (Chromium), escritorio y móvil, sobre una instancia aislada
 pnpm typecheck && pnpm lint
 ```
 
@@ -180,7 +181,8 @@ pnpm typecheck && pnpm lint
 |---|---|
 | `packages/shared` (montos, impuestos, cobertura, transiciones, cédula, zonas horarias, política de contraseñas, validaciones) | 12/12 aprobadas |
 | `apps/api` unitarias (redacción de logs, enlaces firmados, cifrado MFA, montos de reclamación) | 6/6 aprobadas |
-| `apps/api` e2e (44 pruebas en 4 suites) | 44/44 aprobadas |
+| `apps/api` e2e (45 pruebas en 4 suites) | 45/45 aprobadas |
+| `apps/web` interfaz con Playwright (6 flujos en escritorio, 2 en móvil) | 8/8 aprobadas |
 | Compilación TypeScript de API y web | Sin errores |
 | `next build` (22 rutas) y lint del frontend | Sin errores ni advertencias |
 | Respaldo cifrado y restauración en base nueva | Coinciden conteos y montos; una frase incorrecta es rechazada |
@@ -217,7 +219,20 @@ Lo que cubren las e2e:
   - NCF solo con rango registrado;
   - cierre de caja con arqueo.
 
-**Lo que no se ha verificado:** la revisión visual en navegador, incluido el comportamiento responsive de 375 a 1440 px; está diseñado para ello, pero no se ha mirado. Tampoco se han ejecutado las imágenes Docker (no hay Docker en el equipo de desarrollo).
+Lo que cubren las pruebas de interfaz (`apps/web/e2e`):
+- Recepción registra un paciente y le agenda una cita en un espacio disponible.
+- La búsqueda global encuentra pacientes sin tildes y la médica ve las alergias en el expediente.
+- El cajero abre caja y cobra el saldo de una factura, que queda pagada.
+- El cajero no puede abrir el expediente clínico.
+- Gerencia ve los indicadores financieros separados.
+- Sin sesión, la web redirige al inicio de sesión.
+- En móvil (Pixel 7): el menú lateral funciona, ninguna pantalla principal desborda horizontalmente y la agenda usa vistas legibles.
+
+Las pruebas de interfaz levantan una API en `:3002` y una web en `:3010` sobre la base de pruebas, que se recrea con `apps/api/scripts/reset-test-db.cjs`. Ese script solo actúa sobre bases cuyo nombre termina en `_test` y que no son la de desarrollo. **Nunca tocan la base de desarrollo.**
+
+**Revisión visual:** se capturaron y revisaron las pantallas principales a 1440 px y a 375 px con varios roles, y se corrigieron los defectos encontrados.
+
+**Lo que no se ha verificado:** las imágenes Docker y los servicios `caddy` y `backup` de Compose no se han ejecutado, porque no hay Docker en el equipo de desarrollo. El YAML se validó con un parser.
 
 ---
 
@@ -231,7 +246,9 @@ docker compose --env-file .env.docker up -d --build
 ```
 
 - `db` (PostgreSQL 16), `api` (aplica migraciones al iniciar) y `web` (publicado solo en `127.0.0.1:3000`).
-- Coloque delante un **proxy HTTPS** (Caddy o Nginx) que termine TLS y reenvíe a `web:3000`. No exponga `api` ni `db` a Internet.
+- **HTTPS:** `docker compose --env-file .env.docker --profile https up -d` levanta Caddy con certificados automáticos de Let's Encrypt (`infra/Caddyfile`; cambie el dominio). En una red interna sin dominio público use `tls internal`.
+- **Respaldo diario:** el perfil `backup` ejecuta `infra/scripts/backup.sh` a las 02:30 y conserva 30 días. Requiere `BACKUP_PASSPHRASE`.
+- No exponga `api` ni `db` a Internet.
 
 ### Sin Docker (servidor Linux)
 
@@ -241,6 +258,8 @@ pnpm db:deploy
 NODE_ENV=production node apps/api/dist/src/main.js          # detrás de PM2/systemd
 cd apps/web && NODE_ENV=production npx next start -p 3000
 ```
+
+Hay unidades de systemd de ejemplo (`infra/systemd-medigest-api.service` y `infra/systemd-medigest-web.service`) y una tarea de cron para respaldos (`infra/scripts/medigest-backup.cron`).
 
 Con `NODE_ENV=production`:
 - la cookie lleva `Secure`;
@@ -406,9 +425,7 @@ Implementado:
 - Política de respaldo y retención, contratos de encargado de tratamiento con proveedores en la nube y plan de respuesta a incidentes.
 
 **Técnicos:**
-- Revisión visual en navegador y ajustes responsive (375 a 1440 px).
-- Construir y probar las imágenes Docker en un equipo con Docker.
-- Configurar HTTPS, cron de respaldos, monitoreo y rotación de logs en el servidor.
-- Pruebas e2e de interfaz (Playwright) sobre los flujos principales.
-- Eliminación programada de datos al vencer la retención (hoy solo existe el parámetro).
-- Extraer el resto de textos al diccionario de i18n.
+- Construir y probar las imágenes Docker y los perfiles `https` y `backup` en un equipo con Docker.
+- Instalar en el servidor definitivo: dominio y DNS, HTTPS, respaldos programados, monitoreo y rotación de logs.
+- **Retención:** existe la revisión (Configuración > Organización > Revisión de retención), que lista los expedientes fuera de plazo. **No se eliminan automáticamente:** la depuración debe definirse con asesoría legal (anonimización, acta, conservación de lo fiscal).
+- Extraer el resto de textos al diccionario de i18n (hoy solo está la navegación).

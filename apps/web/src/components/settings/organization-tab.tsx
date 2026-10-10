@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate } from '@medigest/shared';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox, Field, Input } from '@/components/ui/form';
@@ -11,6 +12,38 @@ import { useMutation } from './shared';
 
 interface Org { name: string; legalName: string | null; rnc: string | null; phone: string | null; email: string | null; address: string | null; currency: string; timezone: string }
 interface Ops { productName: string; reminderOffsetsMinutes: number[]; notificationChannels: string[]; cancellationMinHours: number; invoiceDueDays: number; allowVirtualAppointments: boolean; maxLoginAttempts: number; lockoutMinutes: number; timeFormat24h: boolean; dataRetentionYears: number }
+
+interface Retention { retentionYears: number; cutoff: string; total: number; patients: { id: string; recordNumber: string; firstName: string; lastName: string; lastVisitAt: string | null; createdAt: string }[] }
+
+/** Revisión de expedientes fuera del plazo de retención. No elimina nada. */
+function RetentionCard() {
+  const [data, setData] = useState<Retention | null>(null);
+  const { busy, run } = useMutation();
+  return (
+    <Card className="xl:col-span-2">
+      <CardHeader
+        title="Revisión de retención de expedientes"
+        description="Lista los pacientes sin actividad por más años que el plazo configurado. El sistema no elimina expedientes: la depuración debe seguir un procedimiento aprobado por asesoría legal."
+        actions={<Button size="sm" variant="outline" loading={busy} onClick={() => run(async () => setData(await api.get<Retention>('/settings/retention')), 'Revisión generada')}>Revisar ahora</Button>}
+      />
+      {data && (
+        <CardBody className="text-sm">
+          <p className="mb-3">Plazo: {data.retentionYears} años (sin actividad antes del {formatDate(data.cutoff)}). Expedientes encontrados: <b>{data.total}</b>.</p>
+          {data.patients.length > 0 && (
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {data.patients.map((p) => (
+                <li key={p.id} className="flex justify-between gap-2 px-3 py-2">
+                  <span>{p.recordNumber} · {p.lastName}, {p.firstName}</span>
+                  <span className="text-muted">Última visita {formatDate(p.lastVisitAt)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardBody>
+      )}
+    </Card>
+  );
+}
 
 export function OrganizationTab() {
   const { can, refresh } = useSession();
@@ -64,6 +97,7 @@ export function OrganizationTab() {
           <Notice tone="sky" className="sm:col-span-2">Los cambios de recordatorios aplican a las citas que se creen o reprogramen desde ahora.</Notice>
         </CardBody>
       </Card>
+      {edit && <RetentionCard />}
     </div>
   );
 }

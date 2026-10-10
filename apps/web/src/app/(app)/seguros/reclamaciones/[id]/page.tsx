@@ -84,7 +84,7 @@ export default function ClaimPage() {
           <Card>
             <CardHeader title="Servicios reclamados" />
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead><tr className="border-b border-border bg-slate-50/70 text-left text-xs uppercase text-muted"><th className="px-5 py-2">Paciente / servicio</th><th className="px-5 py-2">Autorización</th><th className="px-5 py-2 text-right">Reclamado</th><th className="px-5 py-2 text-right">Aprobado</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   {c.items.map((i) => (

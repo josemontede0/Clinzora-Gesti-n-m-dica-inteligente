@@ -96,7 +96,7 @@ export default function CashPage() {
             <CardHeader title="Movimientos de la sesión" />
             {detail.data?.movements?.length ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead><tr className="border-b border-border bg-slate-50/70 text-left text-xs uppercase text-muted"><th className="px-5 py-2">Hora</th><th className="px-5 py-2">Tipo</th><th className="px-5 py-2">Método</th><th className="px-5 py-2">Detalle</th><th className="px-5 py-2 text-right">Monto</th></tr></thead>
                   <tbody className="divide-y divide-border">
                     {detail.data.movements.map((m) => (

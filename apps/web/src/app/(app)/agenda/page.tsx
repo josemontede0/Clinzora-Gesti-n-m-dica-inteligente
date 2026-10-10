@@ -64,7 +64,8 @@ export default function AgendaPage() {
   })), [data, filters.professionalId]);
 
   const move = (dir: 1 | -1) => setDate((d) => (view === 'month' ? addMonths(d, dir) : view === 'week' ? addDays(d, 7 * dir) : view === 'agenda' ? addDays(d, 30 * dir) : addDays(d, dir)));
-  const label = view === 'month' ? format(date, "MMMM 'de' yyyy", { locale: es }) : view === 'week' ? `${format(from, 'd MMM', { locale: es })} – ${format(addDays(to, -1), "d MMM yyyy", { locale: es })}` : format(date, "EEEE d 'de' MMMM yyyy", { locale: es });
+  const rawLabel = view === 'month' ? format(date, "MMMM 'de' yyyy", { locale: es }) : view === 'week' ? `${format(from, 'd MMM', { locale: es })} – ${format(addDays(to, -1), "d MMM yyyy", { locale: es })}` : format(date, "EEEE d 'de' MMMM yyyy", { locale: es });
+  const label = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
 
   return (
     <>
@@ -78,14 +79,14 @@ export default function AgendaPage() {
         }
       />
       <Card className="mb-4 p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" onClick={() => move(-1)} aria-label="Anterior"><ChevronLeft /></Button>
             <Button variant="outline" size="sm" onClick={() => setDate(new Date())}>Hoy</Button>
             <Button variant="outline" size="icon" onClick={() => move(1)} aria-label="Siguiente"><ChevronRight /></Button>
-            <span className="ml-2 text-sm font-semibold capitalize text-navy-800">{label}</span>
+            <span className="ml-2 text-sm font-semibold text-navy-800">{label}</span>
           </div>
-          <div className="flex flex-wrap gap-2 lg:ml-auto">
+          <div className="flex flex-wrap gap-2 xl:ml-auto">
             <div className="flex rounded-lg border border-border p-0.5">
               {(['day', 'week', 'month', 'agenda'] as View[]).filter((v) => !isMobile || v === 'day' || v === 'agenda').map((v) => (
                 <button key={v} onClick={() => setFilters({ ...filters, view: v })} className={cn('rounded-md px-3 py-1.5 text-xs font-medium', view === v ? 'bg-navy-800 text-white' : 'text-slate-600 hover:bg-slate-100')}>
@@ -97,7 +98,7 @@ export default function AgendaPage() {
               <option value="">Todos los médicos</option>
               {pros.data?.map((p) => <option key={p.id} value={p.id}>{fullName(p)}</option>)}
             </Select>
-            <Select className="h-9 w-full sm:w-44" value={filters.specialtyId} onChange={(e) => setFilters({ ...filters, specialtyId: e.target.value })} aria-label="Especialidad">
+            <Select className="h-9 w-full sm:w-56" value={filters.specialtyId} onChange={(e) => setFilters({ ...filters, specialtyId: e.target.value })} aria-label="Especialidad">
               <option value="">Todas las especialidades</option>
               {specialties.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
@@ -131,9 +132,15 @@ export default function AgendaPage() {
             router.push(`/agenda/nueva?${params}`);
           }}
           onSelectEvent={(e) => setSelected(e.id)}
-          eventPropGetter={(e) => ({ style: { backgroundColor: APPT_COLORS[e.status], opacity: e.status === 'CANCELADA' ? 0.55 : 1, textDecoration: e.status === 'CANCELADA' ? 'line-through' : undefined } })}
+          eventPropGetter={(e) =>
+            view === 'agenda'
+              ? { style: { background: 'transparent', color: '#0b1e34', borderLeft: `4px solid ${APPT_COLORS[e.status]}`, textDecoration: e.status === 'CANCELADA' ? 'line-through' : undefined } }
+              : { style: { backgroundColor: APPT_COLORS[e.status], opacity: e.status === 'CANCELADA' ? 0.55 : 1, textDecoration: e.status === 'CANCELADA' ? 'line-through' : undefined } }
+          }
           formats={{ timeGutterFormat: (d: Date) => format(d, me?.timeFormat24h ? 'HH:mm' : 'h:mm a', { locale: es }) }}
           popup
+          toolbar={false}
+          scrollToTime={new Date(1970, 0, 1, 7, 30)}
         />
       </div>
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">

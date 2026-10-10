@@ -69,7 +69,15 @@ function Reception() {
             <span className="text-sm text-muted">{formatDate(day)} · {data?.length ?? 0} cita(s)</span>
           </div>
           {error && <ErrorState message={error} onRetry={reload} />}
-          {loading && !data ? <LoadingBlock /> : (
+          {loading && !data ? <LoadingBlock /> : !data?.length ? (
+            <Card>
+              <EmptyState
+                title="No hay citas para este día"
+                description="Elija otra fecha o consulte la agenda de la semana."
+                action={<Button variant="outline" asChild><Link href="/agenda">Ver agenda</Link></Button>}
+              />
+            </Card>
+          ) : (
             <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
               {grouped.map((g) => (
                 <Card key={g.key}>
@@ -93,7 +101,7 @@ function Reception() {
                         </li>
                       ))}
                     </ul>
-                  ) : <EmptyState title="Sin pacientes" />}
+                  ) : <p className="px-5 py-4 text-sm text-muted">Sin pacientes</p>}
                 </Card>
               ))}
             </div>

@@ -82,9 +82,9 @@ export default function DashboardPage() {
                 <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Finanzas del período</h2>
                 <p className="mb-3 text-xs text-muted">Facturado no es dinero cobrado: el cobrado es lo efectivamente recibido, neto de reembolsos y reversos.</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <Stat label="Facturado" value={formatMoney(data.financial.billed.total, cur)} hint={`${data.financial.billed.invoices} facturas · paciente ${formatMoney(data.financial.billed.patient, cur)} · seguro ${formatMoney(data.financial.billed.insurance, cur)}`} icon={<CircleDollarSign />} />
+                  <Stat label="Facturado" value={formatMoney(data.financial.billed.total, cur)} hint={`${data.financial.billed.invoices} ${data.financial.billed.invoices === 1 ? 'factura' : 'facturas'} · paciente ${formatMoney(data.financial.billed.patient, cur)} · seguro ${formatMoney(data.financial.billed.insurance, cur)}`} icon={<CircleDollarSign />} />
                   <Stat label="Cobrado (neto)" value={formatMoney(data.financial.collected.net, cur)} hint={`Bruto ${formatMoney(data.financial.collected.gross, cur)} · reembolsos ${formatMoney(data.financial.collected.refunds, cur)} · reversos ${formatMoney(data.financial.collected.reversals, cur)}`} icon={<Wallet />} tone="teal" />
-                  <Stat label="Por cobrar a pacientes" value={formatMoney(data.financial.patientReceivable.amount, cur)} hint={`${data.financial.patientReceivable.invoices} facturas con saldo`} icon={<FileWarning />} tone="amber" />
+                  <Stat label="Por cobrar a pacientes" value={formatMoney(data.financial.patientReceivable.amount, cur)} hint={`${data.financial.patientReceivable.invoices} ${data.financial.patientReceivable.invoices === 1 ? 'factura' : 'facturas'} con saldo`} icon={<FileWarning />} tone="amber" />
                   <Stat label="Por cobrar a aseguradoras" value={formatMoney(data.financial.insurerReceivable.claims, cur)} hint={`Sin reclamar aún: ${formatMoney(data.financial.insurerReceivable.notYetClaimed, cur)}`} icon={<Landmark />} tone="amber" />
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

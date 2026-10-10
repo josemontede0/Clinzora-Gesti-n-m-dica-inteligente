@@ -162,6 +162,18 @@ describe('Seguridad', () => {
     expect(exe.status).toBe(400);
   });
 
+  it('la revisión de retención es solo para administración, solo informa y queda auditada', async () => {
+    const admin = await login(app, 'admin@ejemplo.test');
+    expect((await recepcion.get('/settings/retention')).status).toBe(403);
+    const before = await prisma.patient.count();
+    const res = await admin.get('/settings/retention');
+    expect(res.status).toBe(200);
+    expect(res.body.retentionYears).toBe(10);
+    expect(typeof res.body.total).toBe('number');
+    expect(await prisma.patient.count()).toBe(before);
+    expect(await prisma.auditLog.findFirst({ where: { action: 'REVISION_RETENCION' } })).toBeTruthy();
+  });
+
   it('las respuestas de error no exponen trazas internas', async () => {
     const res = await recepcion.get('/ruta-que-no-existe');
     expect(res.status).toBe(404);

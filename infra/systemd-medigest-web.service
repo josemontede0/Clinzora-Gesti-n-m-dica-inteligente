@@ -1,0 +1,18 @@
+# Instalación sin Docker: /etc/systemd/system/medigest-web.service
+[Unit]
+Description=MediGest Web
+After=network.target medigest-api.service
+
+[Service]
+Type=simple
+User=medigest
+WorkingDirectory=/opt/medigest/apps/web
+Environment=NODE_ENV=production
+Environment=API_URL=http://127.0.0.1:3001
+ExecStart=/usr/bin/npx next start -p 3000 -H 127.0.0.1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

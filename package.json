@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "description": "MediGest — Sistema Integral de Gestión Médica",
   "packageManager": "pnpm@11.3.0",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "build": "pnpm --filter @medigest/shared build && pnpm --filter @medigest/api build && pnpm --filter @medigest/web build",
     "build:shared": "pnpm --filter @medigest/shared build",
@@ -16,6 +18,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm --filter @medigest/shared test && pnpm --filter @medigest/api test",
-    "test:e2e": "pnpm --filter @medigest/api test:e2e"
+    "test:e2e": "pnpm --filter @medigest/api test:e2e",
+    "test:ui": "pnpm --filter @medigest/web test:ui"
   }
 }

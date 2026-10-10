@@ -75,6 +75,10 @@ test('paciente: cédula obligatoria y válida', () => {
   assert.equal(patientCreateSchema.safeParse(base).success, false);
   assert.equal(patientCreateSchema.safeParse({ ...base, documentNumber: '00100000017' }).success, true);
   assert.equal(patientCreateSchema.safeParse({ ...base, documentType: 'NINGUNO' }).success, true);
+  // Contacto de emergencia vacío (como lo envía el formulario) = sin contacto.
+  const empty = patientCreateSchema.safeParse({ ...base, documentType: 'NINGUNO', emergencyContact: { name: '', relationship: '', phone: '' } });
+  assert.equal(empty.success, true);
+  assert.equal(empty.success && empty.data.emergencyContact, null);
 });
 
 test('pago: rechaza importes con más de 2 decimales y tarjeta completa', () => {
