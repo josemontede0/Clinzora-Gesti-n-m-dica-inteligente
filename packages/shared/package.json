@@ -1,0 +1,15 @@
+{
+  "name": "@medigest/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/shared.test.js"
+  },
+  "dependencies": { "zod": "^3.25.76" },
+  "devDependencies": { "typescript": "^5.9.3", "@types/node": "^22.20.2" }
+}

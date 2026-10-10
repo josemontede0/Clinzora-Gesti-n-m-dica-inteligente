@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+infra/pgdata/
+infra/.dbpass
+infra/pg.log
+infra/storage/
+infra/mail-outbox/
+infra/backups/
+*.tsbuildinfo
+next-env.d.ts
+infra/seed-credentials.txt

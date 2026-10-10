@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["node", "multer"] },
+  "include": ["src/**/*.ts", "prisma/**/*.ts"],
+  "exclude": ["test", "node_modules", "dist"]
+}

@@ -1,0 +1,1671 @@
+// MediGest — esquema relacional.
+// Convenciones:
+//  - Todo dato de negocio cuelga de una Organization (aislamiento multi-organización).
+//  - Importes en Decimal(14,2); nunca Float.
+//  - Fechas con zona horaria (timestamptz). Las fechas sin hora (nacimiento) usan @db.Date.
+//  - Entidades con historial usan estado/borrado lógico; los registros financieros y clínicos
+//    no se borran físicamente: se anulan, revierten o corrigen con trazabilidad.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Organización ─────────────────────────────
+
+model Organization {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  legalName  String?
+  rnc        String?
+  phone      String?
+  email      String?
+  address    String?
+  logoFileId String?  @db.Uuid
+  currency   String   @default("DOP")
+  timezone   String   @default("America/Santo_Domingo")
+  locale     String   @default("es-DO")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  branches  Branch[]
+  users     User[]
+  roles     Role[]
+  patients  Patient[]
+  settings  SystemSetting[]
+  sequences DocumentSequence[]
+}
+
+model Branch {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  code           String
+  name           String
+  address        String?
+  phone          String?
+  timezone       String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization  Organization         @relation(fields: [organizationId], references: [id])
+  rooms         ConsultationRoom[]
+  users         UserBranch[]
+  professionals ProfessionalBranch[]
+  cashRegisters CashRegister[]
+
+  @@unique([organizationId, code])
+}
+
+model ConsultationRoom {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  branchId       String   @db.Uuid
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  appointments Appointment[]
+  schedules    Schedule[]
+
+  @@unique([branchId, name])
+}
+
+model SystemSetting {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  key            String
+  value          Json
+  updatedById    String?  @db.Uuid
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, key])
+}
+
+/// Numeradores por organización (expedientes, facturas, recibos, reclamaciones…).
+/// Se incrementan con UPDATE … RETURNING dentro de la transacción del documento.
+model DocumentSequence {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  key            String
+  prefix         String
+  nextValue      Int    @default(1)
+  padding        Int    @default(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, key])
+}
+
+// ───────────────────────────── Usuarios y acceso ─────────────────────────────
+
+model User {
+  id                  String    @id @default(uuid()) @db.Uuid
+  organizationId      String    @db.Uuid
+  email               String    @unique
+  fullName            String
+  passwordHash        String
+  active              Boolean   @default(true)
+  mustChangePassword  Boolean   @default(false)
+  passwordChangedAt   DateTime? @db.Timestamptz(3)
+  failedLoginCount    Int       @default(0)
+  lockedUntil         DateTime? @db.Timestamptz(3)
+  lastLoginAt         DateTime? @db.Timestamptz(3)
+  mfaEnabled          Boolean   @default(false)
+  /// Secreto TOTP cifrado con AES-256-GCM (MFA_ENCRYPTION_KEY).
+  mfaSecretEnc        String?
+  mfaPendingSecretEnc String?
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt           DateTime? @db.Timestamptz(3)
+
+  organization    Organization         @relation(fields: [organizationId], references: [id])
+  roles           UserRole[]
+  branches        UserBranch[]
+  sessions        Session[]
+  resetTokens     PasswordResetToken[]
+  professional    MedicalProfessional?
+  passwordHistory PasswordHistory[]
+
+  @@index([organizationId])
+}
+
+model PasswordHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  passwordHash String
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model UserBranch {
+  userId   String @db.Uuid
+  branchId String @db.Uuid
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@id([userId, branchId])
+}
+
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  code           String
+  name           String
+  description    String?
+  isSystem       Boolean  @default(false)
+  /// Las cuentas con este rol deben activar MFA.
+  requiresMfa    Boolean  @default(false)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  permissions  RolePermission[]
+  users        UserRole[]
+
+  @@unique([organizationId, code])
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  code        String @unique
+  module      String
+  description String
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Session {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  /// SHA-256 del token opaco; el token en claro solo viaja en la cookie httpOnly.
+  tokenHash   String    @unique
+  mfaVerified Boolean   @default(false)
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt  DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt   DateTime  @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @db.Uuid
+  userId         String?  @db.Uuid
+  userEmail      String?
+  action         String
+  entity         String
+  entityId       String?
+  branchId       String?  @db.Uuid
+  ip             String?
+  userAgent      String?
+  /// Solo metadatos y campos cambiados. Nunca contraseñas, tokens, tarjetas ni texto clínico.
+  details        Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, createdAt])
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+}
+
+model FileMetadata {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  storageKey     String       @unique
+  originalName   String
+  mimeType       String
+  sizeBytes      Int
+  sha256         String
+  category       FileCategory
+  uploadedById   String       @db.Uuid
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  deletedAt      DateTime?    @db.Timestamptz(3)
+
+  patientDocuments PatientDocument[]
+
+  @@index([organizationId])
+}
+
+enum FileCategory {
+  CLINICAL
+  ADMINISTRATIVE
+  INSURANCE_EVIDENCE
+  CONSENT
+  LOGO
+}
+
+// ───────────────────────────── Pacientes ─────────────────────────────
+
+enum DocumentType {
+  CEDULA
+  PASAPORTE
+  OTRO
+  NINGUNO
+}
+
+enum Sex {
+  FEMENINO
+  MASCULINO
+  INTERSEXUAL
+  NO_ESPECIFICADO
+}
+
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+  MERGED
+}
+
+model Patient {
+  id                   String        @id @default(uuid()) @db.Uuid
+  organizationId       String        @db.Uuid
+  recordNumber         String
+  firstName            String
+  lastName             String
+  documentType         DocumentType  @default(CEDULA)
+  documentNumber       String?
+  birthDate            DateTime?     @db.Date
+  sex                  Sex           @default(NO_ESPECIFICADO)
+  phone                String?
+  /// Solo dígitos, para búsqueda y detección de duplicados.
+  phoneNormalized      String?
+  email                String?
+  address              String?
+  city                 String?
+  province             String?
+  adminNotes           String?
+  status               PatientStatus @default(ACTIVE)
+  mergedIntoId         String?       @db.Uuid
+  mergedDocumentNumber String?
+  lastVisitAt          DateTime?     @db.Timestamptz(3)
+  createdById          String        @db.Uuid
+  createdAt            DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime      @updatedAt @db.Timestamptz(3)
+
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  mergedInto   Patient?              @relation("PatientMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom   Patient[]             @relation("PatientMerge")
+  contacts     PatientContact[]
+  consents     PatientConsent[]
+  documents    PatientDocument[]
+  insurances   PatientInsurance[]
+  appointments Appointment[]
+  encounters   MedicalEncounter[]
+  allergies    Allergy[]
+  medications  Medication[]
+  history      MedicalHistoryEntry[]
+  charges      Charge[]
+  invoices     Invoice[]
+  payments     Payment[]
+
+  @@unique([organizationId, recordNumber])
+  @@unique([organizationId, documentType, documentNumber])
+  @@index([organizationId, lastName, firstName])
+  @@index([organizationId, phoneNormalized])
+}
+
+enum ContactKind {
+  EMERGENCY
+  GUARDIAN
+}
+
+model PatientContact {
+  id             String      @id @default(uuid()) @db.Uuid
+  patientId      String      @db.Uuid
+  kind           ContactKind
+  name           String
+  relationship   String?
+  phone          String?
+  email          String?
+  documentNumber String?
+  createdAt      DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @db.Timestamptz(3)
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+enum ConsentType {
+  TRATAMIENTO
+  TRATAMIENTO_DATOS
+  COMUNICACION_WHATSAPP
+  COMUNICACION_SMS
+  COMUNICACION_EMAIL
+  TELEMEDICINA
+  OTRO
+}
+
+model PatientConsent {
+  id           String      @id @default(uuid()) @db.Uuid
+  patientId    String      @db.Uuid
+  type         ConsentType
+  granted      Boolean
+  notes        String?
+  fileId       String?     @db.Uuid
+  recordedById String      @db.Uuid
+  recordedAt   DateTime    @default(now()) @db.Timestamptz(3)
+  revokedAt    DateTime?   @db.Timestamptz(3)
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId, type])
+}
+
+model PatientDocument {
+  id          String    @id @default(uuid()) @db.Uuid
+  patientId   String    @db.Uuid
+  fileId      String    @db.Uuid
+  encounterId String?   @db.Uuid
+  title       String
+  /// Los documentos clínicos exigen permisos clínicos para listarse y descargarse.
+  isClinical  Boolean   @default(false)
+  createdById String    @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  patient   Patient           @relation(fields: [patientId], references: [id])
+  file      FileMetadata      @relation(fields: [fileId], references: [id])
+  encounter MedicalEncounter? @relation(fields: [encounterId], references: [id])
+
+  @@index([patientId])
+}
+
+// ───────────────────────────── Profesionales y servicios ─────────────────────────────
+
+model MedicalProfessional {
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @db.Uuid
+  userId             String?  @unique @db.Uuid
+  firstName          String
+  lastName           String
+  title              String   @default("Dr.")
+  exequatur          String?
+  phone              String?
+  email              String?
+  defaultDurationMin Int      @default(30)
+  allowOverlap       Boolean  @default(false)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+
+  user         User?                   @relation(fields: [userId], references: [id])
+  specialties  ProfessionalSpecialty[]
+  branches     ProfessionalBranch[]
+  schedules    Schedule[]
+  blocks       ScheduleBlock[]
+  appointments Appointment[]
+  encounters   MedicalEncounter[]
+
+  @@unique([organizationId, exequatur])
+  @@index([organizationId])
+}
+
+model Specialty {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  code           String
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  professionals ProfessionalSpecialty[]
+  services      Service[]
+  appointments  Appointment[]
+
+  @@unique([organizationId, code])
+}
+
+model ProfessionalSpecialty {
+  professionalId String @db.Uuid
+  specialtyId    String @db.Uuid
+
+  professional MedicalProfessional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  specialty    Specialty           @relation(fields: [specialtyId], references: [id])
+
+  @@id([professionalId, specialtyId])
+}
+
+model ProfessionalBranch {
+  professionalId String @db.Uuid
+  branchId       String @db.Uuid
+
+  professional MedicalProfessional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  branch       Branch              @relation(fields: [branchId], references: [id])
+
+  @@id([professionalId, branchId])
+}
+
+/// Horario semanal recurrente. Las horas son minutos desde medianoche en la zona horaria de la sucursal.
+model Schedule {
+  id             String    @id @default(uuid()) @db.Uuid
+  professionalId String    @db.Uuid
+  branchId       String    @db.Uuid
+  roomId         String?   @db.Uuid
+  weekday        Int
+  startMinute    Int
+  endMinute      Int
+  validFrom      DateTime? @db.Date
+  validTo        DateTime? @db.Date
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  professional MedicalProfessional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  room         ConsultationRoom?   @relation(fields: [roomId], references: [id])
+
+  @@index([professionalId, weekday])
+}
+
+enum ScheduleBlockType {
+  BLOQUEO
+  VACACIONES
+  FERIADO
+}
+
+model ScheduleBlock {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  professionalId String?           @db.Uuid
+  branchId       String?           @db.Uuid
+  type           ScheduleBlockType @default(BLOQUEO)
+  startsAt       DateTime          @db.Timestamptz(3)
+  endsAt         DateTime          @db.Timestamptz(3)
+  reason         String?
+  createdById    String            @db.Uuid
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+
+  professional MedicalProfessional? @relation(fields: [professionalId], references: [id])
+
+  @@index([organizationId, startsAt])
+}
+
+enum ServiceCategory {
+  CONSULTA
+  PROCEDIMIENTO
+  LABORATORIO
+  IMAGEN
+  OTRO
+}
+
+model Service {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  code           String
+  name           String
+  description    String?
+  category       ServiceCategory @default(CONSULTA)
+  specialtyId    String?         @db.Uuid
+  durationMin    Int             @default(30)
+  /// Tasa ITBIS u otro impuesto aplicable (0 = exento). Los servicios de salud suelen estar exentos; configurable.
+  taxRate        Decimal         @default(0) @db.Decimal(5, 2)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+
+  specialty Specialty?     @relation(fields: [specialtyId], references: [id])
+  prices    ServicePrice[]
+
+  @@unique([organizationId, code])
+}
+
+/// Tarifas con vigencia. insurancePlanId nulo = tarifa particular.
+/// Nunca se editan: un cambio de precio cierra la vigencia anterior y crea otra.
+model ServicePrice {
+  id              String    @id @default(uuid()) @db.Uuid
+  serviceId       String    @db.Uuid
+  insurancePlanId String?   @db.Uuid
+  price           Decimal   @db.Decimal(14, 2)
+  /// Monto que cubre la aseguradora (tarifa negociada). Si es nulo se usa coveragePercent.
+  coverageAmount  Decimal?  @db.Decimal(14, 2)
+  coveragePercent Decimal?  @db.Decimal(5, 2)
+  validFrom       DateTime  @default(now()) @db.Timestamptz(3)
+  validTo         DateTime? @db.Timestamptz(3)
+  createdById     String    @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+
+  service Service        @relation(fields: [serviceId], references: [id])
+  plan    InsurancePlan? @relation(fields: [insurancePlanId], references: [id])
+
+  @@index([serviceId, insurancePlanId, validFrom])
+}
+
+// ───────────────────────────── Citas ─────────────────────────────
+
+enum AppointmentStatus {
+  SOLICITADA
+  PENDIENTE_CONFIRMACION
+  CONFIRMADA
+  EN_ESPERA
+  EN_CONSULTA
+  COMPLETADA
+  CANCELADA
+  NO_ASISTIO
+}
+
+enum AppointmentModality {
+  PRESENCIAL
+  VIRTUAL
+}
+
+model Appointment {
+  id                 String              @id @default(uuid()) @db.Uuid
+  organizationId     String              @db.Uuid
+  branchId           String              @db.Uuid
+  patientId          String              @db.Uuid
+  professionalId     String              @db.Uuid
+  specialtyId        String?             @db.Uuid
+  serviceId          String?             @db.Uuid
+  roomId             String?             @db.Uuid
+  patientInsuranceId String?             @db.Uuid
+  startsAt           DateTime            @db.Timestamptz(3)
+  endsAt             DateTime            @db.Timestamptz(3)
+  status             AppointmentStatus   @default(PENDIENTE_CONFIRMACION)
+  modality           AppointmentModality @default(PRESENCIAL)
+  /// Motivo administrativo (no clínico).
+  reason             String?
+  notes              String?
+  checkedInAt        DateTime?           @db.Timestamptz(3)
+  cancelledAt        DateTime?           @db.Timestamptz(3)
+  cancelReason       String?
+  rescheduledFromId  String?             @db.Uuid
+  /// false cuando el profesional permite solapamientos (lo usa la restricción EXCLUDE de la BD).
+  overlapGuard       Boolean             @default(true)
+  createdById        String              @db.Uuid
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(3)
+
+  patient          Patient                    @relation(fields: [patientId], references: [id])
+  professional     MedicalProfessional        @relation(fields: [professionalId], references: [id])
+  specialty        Specialty?                 @relation(fields: [specialtyId], references: [id])
+  room             ConsultationRoom?          @relation(fields: [roomId], references: [id])
+  patientInsurance PatientInsurance?          @relation(fields: [patientInsuranceId], references: [id])
+  history          AppointmentStatusHistory[]
+  encounter        MedicalEncounter?
+  notifications    Notification[]
+
+  @@index([organizationId, startsAt])
+  @@index([professionalId, startsAt])
+  @@index([patientId, startsAt])
+}
+
+model AppointmentStatusHistory {
+  id            String             @id @default(uuid()) @db.Uuid
+  appointmentId String             @db.Uuid
+  fromStatus    AppointmentStatus?
+  toStatus      AppointmentStatus
+  reason        String?
+  details       Json?
+  changedById   String             @db.Uuid
+  createdAt     DateTime           @default(now()) @db.Timestamptz(3)
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@index([appointmentId])
+}
+
+enum WaitlistStatus {
+  EN_ESPERA
+  AGENDADA
+  CANCELADA
+}
+
+model WaitlistEntry {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  branchId       String         @db.Uuid
+  patientId      String         @db.Uuid
+  professionalId String?        @db.Uuid
+  specialtyId    String?        @db.Uuid
+  serviceId      String?        @db.Uuid
+  preferredFrom  DateTime?      @db.Date
+  preferredTo    DateTime?      @db.Date
+  notes          String?
+  status         WaitlistStatus @default(EN_ESPERA)
+  appointmentId  String?        @db.Uuid
+  createdById    String         @db.Uuid
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, status])
+}
+
+// ───────────────────────────── Expediente clínico ─────────────────────────────
+
+enum EncounterStatus {
+  EN_CURSO
+  FIRMADO
+}
+
+model MedicalEncounter {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  branchId       String          @db.Uuid
+  patientId      String          @db.Uuid
+  professionalId String          @db.Uuid
+  appointmentId  String?         @unique @db.Uuid
+  status         EncounterStatus @default(EN_CURSO)
+  startedAt      DateTime        @default(now()) @db.Timestamptz(3)
+  signedAt       DateTime?       @db.Timestamptz(3)
+  signedById     String?         @db.Uuid
+  createdById    String          @db.Uuid
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+
+  patient       Patient             @relation(fields: [patientId], references: [id])
+  professional  MedicalProfessional @relation(fields: [professionalId], references: [id])
+  appointment   Appointment?        @relation(fields: [appointmentId], references: [id])
+  notes         ClinicalNote[]
+  vitals        VitalSigns[]
+  diagnoses     Diagnosis[]
+  prescriptions Prescription[]
+  orders        MedicalOrder[]
+  documents     PatientDocument[]
+
+  @@index([patientId, startedAt])
+  @@index([organizationId, startedAt])
+}
+
+enum ClinicalNoteSection {
+  MOTIVO_CONSULTA
+  ENFERMEDAD_ACTUAL
+  EXAMEN_FISICO
+  EVALUACION
+  PLAN
+  EVOLUCION
+  OTRO
+}
+
+/// Las notas de un encuentro firmado son inmutables. Una corrección crea una versión nueva
+/// (supersedesId → original), marca la anterior como no vigente y exige motivo.
+model ClinicalNote {
+  id               String              @id @default(uuid()) @db.Uuid
+  encounterId      String              @db.Uuid
+  section          ClinicalNoteSection
+  content          String
+  version          Int                 @default(1)
+  isCurrent        Boolean             @default(true)
+  supersedesId     String?             @unique @db.Uuid
+  correctionReason String?
+  authorId         String              @db.Uuid
+  createdAt        DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(3)
+
+  encounter    MedicalEncounter @relation(fields: [encounterId], references: [id])
+  supersedes   ClinicalNote?    @relation("NoteVersion", fields: [supersedesId], references: [id])
+  supersededBy ClinicalNote?    @relation("NoteVersion")
+
+  @@index([encounterId, section])
+}
+
+model VitalSigns {
+  id              String   @id @default(uuid()) @db.Uuid
+  encounterId     String   @db.Uuid
+  recordedById    String   @db.Uuid
+  recordedAt      DateTime @default(now()) @db.Timestamptz(3)
+  systolic        Int?
+  diastolic       Int?
+  heartRate       Int?
+  respiratoryRate Int?
+  temperatureC    Decimal? @db.Decimal(4, 1)
+  spo2            Int?
+  weightKg        Decimal? @db.Decimal(5, 2)
+  heightCm        Decimal? @db.Decimal(5, 1)
+  bmi             Decimal? @db.Decimal(5, 2)
+  notes           String?
+
+  encounter MedicalEncounter @relation(fields: [encounterId], references: [id])
+
+  @@index([encounterId])
+}
+
+enum DiagnosisType {
+  PRINCIPAL
+  SECUNDARIO
+}
+
+model Diagnosis {
+  id          String        @id @default(uuid()) @db.Uuid
+  encounterId String        @db.Uuid
+  code        String?
+  description String
+  type        DiagnosisType @default(PRINCIPAL)
+  createdById String        @db.Uuid
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  voidedAt    DateTime?     @db.Timestamptz(3)
+  voidReason  String?
+
+  encounter MedicalEncounter @relation(fields: [encounterId], references: [id])
+
+  @@index([encounterId])
+}
+
+enum AllergySeverity {
+  LEVE
+  MODERADA
+  SEVERA
+}
+
+model Allergy {
+  id           String          @id @default(uuid()) @db.Uuid
+  patientId    String          @db.Uuid
+  substance    String
+  reaction     String?
+  severity     AllergySeverity @default(MODERADA)
+  active       Boolean         @default(true)
+  recordedById String          @db.Uuid
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+}
+
+/// Medicamentos de uso actual del paciente (no confundir con prescripciones del encuentro).
+model Medication {
+  id           String    @id @default(uuid()) @db.Uuid
+  patientId    String    @db.Uuid
+  name         String
+  dose         String?
+  frequency    String?
+  route        String?
+  startDate    DateTime? @db.Date
+  endDate      DateTime? @db.Date
+  active       Boolean   @default(true)
+  recordedById String    @db.Uuid
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+}
+
+enum HistoryKind {
+  PERSONAL
+  FAMILIAR
+  QUIRURGICO
+  GINECO_OBSTETRICO
+  SOCIAL
+  OTRO
+}
+
+model MedicalHistoryEntry {
+  id           String      @id @default(uuid()) @db.Uuid
+  patientId    String      @db.Uuid
+  kind         HistoryKind
+  description  String
+  active       Boolean     @default(true)
+  recordedById String      @db.Uuid
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+}
+
+model Prescription {
+  id          String    @id @default(uuid()) @db.Uuid
+  encounterId String    @db.Uuid
+  notes       String?
+  createdById String    @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  voidedAt    DateTime? @db.Timestamptz(3)
+  voidReason  String?
+
+  encounter MedicalEncounter   @relation(fields: [encounterId], references: [id])
+  items     PrescriptionItem[]
+}
+
+model PrescriptionItem {
+  id             String  @id @default(uuid()) @db.Uuid
+  prescriptionId String  @db.Uuid
+  medication     String
+  dose           String?
+  route          String?
+  frequency      String?
+  duration       String?
+  quantity       String?
+  instructions   String?
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+}
+
+enum MedicalOrderType {
+  LABORATORIO
+  IMAGEN
+  PROCEDIMIENTO
+  REFERIMIENTO
+  OTRO
+}
+
+enum MedicalOrderStatus {
+  ORDENADA
+  COMPLETADA
+  CANCELADA
+}
+
+model MedicalOrder {
+  id            String             @id @default(uuid()) @db.Uuid
+  encounterId   String             @db.Uuid
+  type          MedicalOrderType
+  description   String
+  status        MedicalOrderStatus @default(ORDENADA)
+  resultSummary String?
+  resultFileId  String?            @db.Uuid
+  resultAt      DateTime?          @db.Timestamptz(3)
+  createdById   String             @db.Uuid
+  createdAt     DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(3)
+
+  encounter MedicalEncounter @relation(fields: [encounterId], references: [id])
+}
+
+// ───────────────────────────── Seguros / ARS ─────────────────────────────
+
+model Insurer {
+  id                  String   @id @default(uuid()) @db.Uuid
+  organizationId      String   @db.Uuid
+  code                String
+  name                String
+  rnc                 String?
+  phone               String?
+  email               String?
+  /// Días que da la ARS para someter reclamaciones tras el servicio.
+  claimSubmissionDays Int      @default(30)
+  /// Días esperados de pago tras someter la reclamación.
+  paymentTermDays     Int      @default(45)
+  /// MANUAL mientras no exista una interfaz autorizada y documentada con la ARS.
+  integrationMode     String   @default("MANUAL")
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+
+  plans    InsurancePlan[]
+  claims   Claim[]
+  payments InsurerPayment[]
+
+  @@unique([organizationId, code])
+}
+
+model InsurancePlan {
+  id                     String   @id @default(uuid()) @db.Uuid
+  insurerId              String   @db.Uuid
+  code                   String
+  name                   String
+  coverageType           String   @default("BASICO")
+  /// Cobertura porcentual por defecto cuando el servicio no tiene tarifa negociada.
+  defaultCoveragePercent Decimal  @default(0) @db.Decimal(5, 2)
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now()) @db.Timestamptz(3)
+
+  insurer    Insurer            @relation(fields: [insurerId], references: [id])
+  prices     ServicePrice[]
+  affiliates PatientInsurance[]
+
+  @@unique([insurerId, code])
+}
+
+model PatientInsurance {
+  id              String    @id @default(uuid()) @db.Uuid
+  patientId       String    @db.Uuid
+  planId          String    @db.Uuid
+  affiliateNumber String
+  holderName      String?
+  /// TITULAR o DEPENDIENTE
+  relationship    String    @default("TITULAR")
+  validFrom       DateTime? @db.Date
+  validTo         DateTime? @db.Date
+  isPrimary       Boolean   @default(true)
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  patient        Patient                  @relation(fields: [patientId], references: [id])
+  plan           InsurancePlan            @relation(fields: [planId], references: [id])
+  verifications  CoverageVerification[]
+  authorizations InsuranceAuthorization[]
+  appointments   Appointment[]
+
+  @@unique([planId, affiliateNumber, patientId])
+  @@index([patientId])
+}
+
+enum VerificationMethod {
+  MANUAL
+  INTEGRACION
+}
+
+enum VerificationResult {
+  ELEGIBLE
+  NO_ELEGIBLE
+  PENDIENTE
+}
+
+/// Registro de validación de cobertura. Si el método es MANUAL, la validación la hizo una
+/// persona (portal, teléfono); el sistema no afirma haberla validado automáticamente.
+model CoverageVerification {
+  id                 String             @id @default(uuid()) @db.Uuid
+  patientInsuranceId String             @db.Uuid
+  appointmentId      String?            @db.Uuid
+  method             VerificationMethod @default(MANUAL)
+  result             VerificationResult
+  reference          String?
+  notes              String?
+  evidenceFileId     String?            @db.Uuid
+  verifiedById       String             @db.Uuid
+  verifiedAt         DateTime           @default(now()) @db.Timestamptz(3)
+
+  patientInsurance PatientInsurance @relation(fields: [patientInsuranceId], references: [id])
+}
+
+enum AuthorizationStatus {
+  SOLICITADA
+  APROBADA
+  DENEGADA
+  VENCIDA
+  UTILIZADA
+}
+
+model InsuranceAuthorization {
+  id                  String              @id @default(uuid()) @db.Uuid
+  organizationId      String              @db.Uuid
+  patientInsuranceId  String              @db.Uuid
+  serviceId           String?             @db.Uuid
+  appointmentId       String?             @db.Uuid
+  authorizationNumber String?
+  /// Monto autorizado por la ARS. Una autorización NO es un pago.
+  authorizedAmount    Decimal?            @db.Decimal(14, 2)
+  status              AuthorizationStatus @default(SOLICITADA)
+  method              VerificationMethod  @default(MANUAL)
+  validUntil          DateTime?           @db.Date
+  notes               String?
+  evidenceFileId      String?             @db.Uuid
+  createdById         String              @db.Uuid
+  createdAt           DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(3)
+
+  patientInsurance PatientInsurance @relation(fields: [patientInsuranceId], references: [id])
+  claimItems       ClaimItem[]
+
+  @@index([organizationId, status])
+}
+
+enum ClaimStatus {
+  BORRADOR
+  SOMETIDA
+  EN_REVISION
+  APROBADA
+  APROBADA_PARCIAL
+  RECHAZADA
+  PAGADA_PARCIAL
+  PAGADA
+  CERRADA
+}
+
+/// Reclamación a una ARS.
+/// claimedAmount = suma reclamada; approvedAmount = reconocida por la ARS;
+/// glosaAmount = objetada; paidAmount = efectivamente recibida; balance = approved − paid.
+model Claim {
+  id                  String      @id @default(uuid()) @db.Uuid
+  organizationId      String      @db.Uuid
+  branchId            String      @db.Uuid
+  number              String
+  insurerId           String      @db.Uuid
+  status              ClaimStatus @default(BORRADOR)
+  externalReference   String?
+  submittedAt         DateTime?   @db.Timestamptz(3)
+  submissionDeadline  DateTime?   @db.Date
+  expectedPaymentDate DateTime?   @db.Date
+  claimedAmount       Decimal     @default(0) @db.Decimal(14, 2)
+  approvedAmount      Decimal?    @db.Decimal(14, 2)
+  glosaAmount         Decimal     @default(0) @db.Decimal(14, 2)
+  paidAmount          Decimal     @default(0) @db.Decimal(14, 2)
+  notes               String?
+  createdById         String      @db.Uuid
+  createdAt           DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime    @updatedAt @db.Timestamptz(3)
+
+  insurer     Insurer                    @relation(fields: [insurerId], references: [id])
+  items       ClaimItem[]
+  history     ClaimStatusHistory[]
+  glosas      ClaimGlosa[]
+  allocations InsurerPaymentAllocation[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+}
+
+model ClaimItem {
+  id                 String   @id @default(uuid()) @db.Uuid
+  claimId            String   @db.Uuid
+  /// Una línea de factura solo puede reclamarse una vez.
+  invoiceItemId      String   @unique @db.Uuid
+  patientInsuranceId String   @db.Uuid
+  authorizationId    String?  @db.Uuid
+  serviceDate        DateTime @db.Timestamptz(3)
+  description        String
+  claimedAmount      Decimal  @db.Decimal(14, 2)
+  approvedAmount     Decimal? @db.Decimal(14, 2)
+
+  claim         Claim                   @relation(fields: [claimId], references: [id])
+  invoiceItem   InvoiceItem             @relation(fields: [invoiceItemId], references: [id])
+  authorization InsuranceAuthorization? @relation(fields: [authorizationId], references: [id])
+  glosas        ClaimGlosa[]
+}
+
+model ClaimStatusHistory {
+  id          String       @id @default(uuid()) @db.Uuid
+  claimId     String       @db.Uuid
+  fromStatus  ClaimStatus?
+  toStatus    ClaimStatus
+  note        String?
+  changedById String       @db.Uuid
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+
+  claim Claim @relation(fields: [claimId], references: [id])
+}
+
+enum GlosaStatus {
+  ABIERTA
+  ACEPTADA
+  EN_DISPUTA
+  RECUPERADA
+}
+
+model ClaimGlosa {
+  id          String      @id @default(uuid()) @db.Uuid
+  claimId     String      @db.Uuid
+  claimItemId String?     @db.Uuid
+  code        String?
+  reason      String
+  amount      Decimal     @db.Decimal(14, 2)
+  status      GlosaStatus @default(ABIERTA)
+  resolution  String?
+  createdById String      @db.Uuid
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  claim     Claim      @relation(fields: [claimId], references: [id])
+  claimItem ClaimItem? @relation(fields: [claimItemId], references: [id])
+}
+
+/// Pago recibido de una ARS (normalmente transferencia). Se concilia contra reclamaciones.
+model InsurerPayment {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  insurerId      String    @db.Uuid
+  receivedAt     DateTime  @db.Timestamptz(3)
+  amount         Decimal   @db.Decimal(14, 2)
+  reference      String?
+  notes          String?
+  createdById    String    @db.Uuid
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  reversedAt     DateTime? @db.Timestamptz(3)
+  reverseReason  String?
+
+  insurer     Insurer                    @relation(fields: [insurerId], references: [id])
+  allocations InsurerPaymentAllocation[]
+
+  @@index([organizationId, receivedAt])
+}
+
+model InsurerPaymentAllocation {
+  id               String   @id @default(uuid()) @db.Uuid
+  insurerPaymentId String   @db.Uuid
+  claimId          String   @db.Uuid
+  amount           Decimal  @db.Decimal(14, 2)
+  createdById      String   @db.Uuid
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  insurerPayment InsurerPayment @relation(fields: [insurerPaymentId], references: [id])
+  claim          Claim          @relation(fields: [claimId], references: [id])
+
+  @@unique([insurerPaymentId, claimId])
+}
+
+// ───────────────────────────── Facturación ─────────────────────────────
+
+enum ChargeSource {
+  ENCUENTRO
+  CITA
+  MANUAL
+}
+
+enum ChargeStatus {
+  PENDIENTE
+  FACTURADO
+  ANULADO
+}
+
+model Charge {
+  id                 String       @id @default(uuid()) @db.Uuid
+  organizationId     String       @db.Uuid
+  branchId           String       @db.Uuid
+  patientId          String       @db.Uuid
+  serviceId          String       @db.Uuid
+  professionalId     String?      @db.Uuid
+  encounterId        String?      @db.Uuid
+  appointmentId      String?      @db.Uuid
+  patientInsuranceId String?      @db.Uuid
+  servicePriceId     String?      @db.Uuid
+  serviceDate        DateTime     @db.Timestamptz(3)
+  description        String
+  quantity           Int          @default(1)
+  unitPrice          Decimal      @db.Decimal(14, 2)
+  discount           Decimal      @default(0) @db.Decimal(14, 2)
+  discountReason     String?
+  taxRate            Decimal      @default(0) @db.Decimal(5, 2)
+  taxAmount          Decimal      @default(0) @db.Decimal(14, 2)
+  total              Decimal      @db.Decimal(14, 2)
+  /// Parte atribuida a la aseguradora (estimada al cargar) y parte del paciente (copago/diferencia).
+  insuranceAmount    Decimal      @default(0) @db.Decimal(14, 2)
+  patientAmount      Decimal      @db.Decimal(14, 2)
+  source             ChargeSource
+  status             ChargeStatus @default(PENDIENTE)
+  /// Evita cargos duplicados por el mismo evento al reintentar.
+  idempotencyKey     String       @unique
+  voidReason         String?
+  createdById        String       @db.Uuid
+  createdAt          DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(3)
+
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  invoiceItem InvoiceItem?
+
+  @@index([organizationId, status])
+  @@index([patientId])
+}
+
+enum InvoiceStatus {
+  BORRADOR
+  PENDIENTE
+  PARCIAL
+  PAGADA
+  ANULADA
+}
+
+/// Factura interna. "Vencida" se deriva (dueDate pasada con saldo > 0); no es un estado almacenado.
+/// total = subtotal − descuentos + impuestos
+/// patientAmount = total − insuranceAmount (lo que debe el paciente)
+/// balance = patientAmount − paidAmount − creditedAmount
+model Invoice {
+  id                 String        @id @default(uuid()) @db.Uuid
+  organizationId     String        @db.Uuid
+  branchId           String        @db.Uuid
+  number             String
+  patientId          String        @db.Uuid
+  patientInsuranceId String?       @db.Uuid
+  status             InvoiceStatus @default(BORRADOR)
+  issuedAt           DateTime?     @db.Timestamptz(3)
+  dueDate            DateTime?     @db.Date
+  currency           String        @default("DOP")
+  subtotal           Decimal       @default(0) @db.Decimal(14, 2)
+  discountTotal      Decimal       @default(0) @db.Decimal(14, 2)
+  taxTotal           Decimal       @default(0) @db.Decimal(14, 2)
+  total              Decimal       @default(0) @db.Decimal(14, 2)
+  insuranceAmount    Decimal       @default(0) @db.Decimal(14, 2)
+  patientAmount      Decimal       @default(0) @db.Decimal(14, 2)
+  paidAmount         Decimal       @default(0) @db.Decimal(14, 2)
+  creditedAmount     Decimal       @default(0) @db.Decimal(14, 2)
+  balance            Decimal       @default(0) @db.Decimal(14, 2)
+  notes              String?
+  voidedAt           DateTime?     @db.Timestamptz(3)
+  voidReason         String?
+  voidedById         String?       @db.Uuid
+  createdById        String        @db.Uuid
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
+
+  patient         Patient             @relation(fields: [patientId], references: [id])
+  items           InvoiceItem[]
+  allocations     PaymentAllocation[]
+  creditNotes     CreditNote[]
+  fiscalDocuments FiscalDocument[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([patientId])
+}
+
+model InvoiceItem {
+  id              String  @id @default(uuid()) @db.Uuid
+  invoiceId       String  @db.Uuid
+  chargeId        String? @unique @db.Uuid
+  serviceId       String  @db.Uuid
+  description     String
+  quantity        Int
+  unitPrice       Decimal @db.Decimal(14, 2)
+  discount        Decimal @default(0) @db.Decimal(14, 2)
+  taxRate         Decimal @default(0) @db.Decimal(5, 2)
+  taxAmount       Decimal @default(0) @db.Decimal(14, 2)
+  total           Decimal @db.Decimal(14, 2)
+  insuranceAmount Decimal @default(0) @db.Decimal(14, 2)
+  patientAmount   Decimal @db.Decimal(14, 2)
+
+  invoice   Invoice    @relation(fields: [invoiceId], references: [id])
+  charge    Charge?    @relation(fields: [chargeId], references: [id])
+  claimItem ClaimItem?
+}
+
+enum CreditNoteStatus {
+  EMITIDA
+  ANULADA
+}
+
+model CreditNote {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  number         String
+  invoiceId      String           @db.Uuid
+  amount         Decimal          @db.Decimal(14, 2)
+  reason         String
+  status         CreditNoteStatus @default(EMITIDA)
+  createdById    String           @db.Uuid
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+
+  invoice         Invoice          @relation(fields: [invoiceId], references: [id])
+  fiscalDocuments FiscalDocument[]
+
+  @@unique([organizationId, number])
+}
+
+// ───────────────────────────── Pagos y caja ─────────────────────────────
+
+enum PaymentMethodKind {
+  EFECTIVO
+  TARJETA_DEBITO
+  TARJETA_CREDITO
+  TRANSFERENCIA
+  CHEQUE
+  OTRO
+}
+
+model PaymentMethod {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @db.Uuid
+  code              String
+  name              String
+  kind              PaymentMethodKind
+  requiresReference Boolean           @default(false)
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
+
+  tenders PaymentTender[]
+
+  @@unique([organizationId, code])
+}
+
+enum PaymentStatus {
+  PENDIENTE
+  COMPLETADO
+  FALLIDO
+  REVERTIDO
+}
+
+/// Un cobro (recibo). Puede componerse de varios medios (PaymentTender) y aplicarse a una o varias
+/// facturas (PaymentAllocation). Lo no aplicado queda como anticipo del paciente.
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  branchId       String        @db.Uuid
+  number         String
+  patientId      String        @db.Uuid
+  cashSessionId  String?       @db.Uuid
+  receivedAt     DateTime      @default(now()) @db.Timestamptz(3)
+  amount         Decimal       @db.Decimal(14, 2)
+  status         PaymentStatus @default(COMPLETADO)
+  notes          String?
+  idempotencyKey String        @unique
+  reversedAt     DateTime?     @db.Timestamptz(3)
+  reverseReason  String?
+  reversedById   String?       @db.Uuid
+  createdById    String        @db.Uuid
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  patient     Patient             @relation(fields: [patientId], references: [id])
+  cashSession CashSession?        @relation(fields: [cashSessionId], references: [id])
+  tenders     PaymentTender[]
+  allocations PaymentAllocation[]
+  refunds     Refund[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, receivedAt])
+  @@index([patientId])
+}
+
+model PaymentTender {
+  id            String  @id @default(uuid()) @db.Uuid
+  paymentId     String  @db.Uuid
+  methodId      String  @db.Uuid
+  amount        Decimal @db.Decimal(14, 2)
+  /// Referencia de transferencia, número de aprobación, etc. Nunca PAN ni CVV.
+  reference     String?
+  cardLast4     String?
+  cardBrand     String?
+  transactionId String? @unique @db.Uuid
+
+  payment     Payment             @relation(fields: [paymentId], references: [id])
+  method      PaymentMethod       @relation(fields: [methodId], references: [id])
+  transaction PaymentTransaction? @relation(fields: [transactionId], references: [id])
+}
+
+enum TransactionStatus {
+  INICIADA
+  APROBADA
+  DECLINADA
+  ERROR
+  REVERSADA
+}
+
+/// Transacción con el procesador/terminal de tarjetas. El pago solo se completa con APROBADA.
+model PaymentTransaction {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @db.Uuid
+  provider        String
+  /// true cuando la transacción se hizo contra el entorno de pruebas del proveedor.
+  testMode        Boolean
+  idempotencyKey  String            @unique
+  externalId      String?
+  amount          Decimal           @db.Decimal(14, 2)
+  currency        String            @default("DOP")
+  status          TransactionStatus @default(INICIADA)
+  authCode        String?
+  cardLast4       String?
+  cardBrand       String?
+  responseCode    String?
+  responseMessage String?
+  createdById     String            @db.Uuid
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(3)
+
+  tender PaymentTender?
+
+  @@unique([provider, externalId])
+}
+
+model PaymentAllocation {
+  id          String    @id @default(uuid()) @db.Uuid
+  paymentId   String    @db.Uuid
+  invoiceId   String    @db.Uuid
+  amount      Decimal   @db.Decimal(14, 2)
+  createdById String    @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  reversedAt  DateTime? @db.Timestamptz(3)
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@index([paymentId])
+}
+
+enum RefundStatus {
+  COMPLETADO
+  ANULADO
+}
+
+model Refund {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  paymentId      String       @db.Uuid
+  invoiceId      String?      @db.Uuid
+  methodId       String       @db.Uuid
+  cashSessionId  String?      @db.Uuid
+  amount         Decimal      @db.Decimal(14, 2)
+  reason         String
+  status         RefundStatus @default(COMPLETADO)
+  idempotencyKey String       @unique
+  approvedById   String       @db.Uuid
+  createdById    String       @db.Uuid
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+model CashRegister {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  branchId       String   @db.Uuid
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  branch   Branch        @relation(fields: [branchId], references: [id])
+  sessions CashSession[]
+
+  @@unique([branchId, name])
+}
+
+enum CashSessionStatus {
+  ABIERTA
+  CERRADA
+}
+
+model CashSession {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  registerId     String            @db.Uuid
+  branchId       String            @db.Uuid
+  status         CashSessionStatus @default(ABIERTA)
+  openedById     String            @db.Uuid
+  openedAt       DateTime          @default(now()) @db.Timestamptz(3)
+  openingFloat   Decimal           @db.Decimal(14, 2)
+  closedById     String?           @db.Uuid
+  closedAt       DateTime?         @db.Timestamptz(3)
+  expectedCash   Decimal?          @db.Decimal(14, 2)
+  countedCash    Decimal?          @db.Decimal(14, 2)
+  difference     Decimal?          @db.Decimal(14, 2)
+  closingNotes   String?
+
+  register  CashRegister   @relation(fields: [registerId], references: [id])
+  movements CashMovement[]
+  payments  Payment[]
+
+  @@index([organizationId, openedAt])
+}
+
+enum CashMovementType {
+  FONDO_INICIAL
+  COBRO
+  REEMBOLSO
+  REVERSO
+  RETIRO
+  INGRESO
+}
+
+/// Movimientos de caja. amount con signo: entradas positivas, salidas negativas.
+model CashMovement {
+  id          String            @id @default(uuid()) @db.Uuid
+  sessionId   String            @db.Uuid
+  type        CashMovementType
+  methodKind  PaymentMethodKind
+  amount      Decimal           @db.Decimal(14, 2)
+  paymentId   String?           @db.Uuid
+  refundId    String?           @db.Uuid
+  description String?
+  createdById String            @db.Uuid
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+
+  session CashSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId])
+}
+
+// ───────────────────────────── Fiscal (DGII) ─────────────────────────────
+
+/// Rangos de comprobantes autorizados por la DGII, registrados por el usuario.
+/// El sistema nunca inventa números: solo consume rangos cargados aquí.
+model FiscalSequence {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  /// Ej.: B01, B02, B04, B14, B15, E31, E32, E34…
+  type           String
+  description    String
+  prefix         String
+  rangeFrom      Int
+  rangeTo        Int
+  nextNumber     Int
+  validUntil     DateTime? @db.Date
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, type, active])
+}
+
+enum FiscalStatus {
+  PENDIENTE
+  EMITIDO
+  ENVIADO
+  ACEPTADO
+  RECHAZADO
+  ANULADO
+}
+
+model FiscalDocument {
+  id                String       @id @default(uuid()) @db.Uuid
+  organizationId    String       @db.Uuid
+  invoiceId         String?      @db.Uuid
+  creditNoteId      String?      @db.Uuid
+  type              String
+  ncf               String?
+  status            FiscalStatus @default(PENDIENTE)
+  buyerRnc          String?
+  buyerName         String?
+  amount            Decimal      @db.Decimal(14, 2)
+  taxAmount         Decimal      @default(0) @db.Decimal(14, 2)
+  /// MANUAL (NCF de rango cargado) o el proveedor e-CF configurado.
+  provider          String       @default("MANUAL")
+  providerReference String?
+  providerMessage   String?
+  issuedAt          DateTime?    @db.Timestamptz(3)
+  createdById       String       @db.Uuid
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(3)
+
+  invoice    Invoice?    @relation(fields: [invoiceId], references: [id])
+  creditNote CreditNote? @relation(fields: [creditNoteId], references: [id])
+
+  @@unique([organizationId, ncf])
+}
+
+// ───────────────────────────── Notificaciones ─────────────────────────────
+
+enum NotificationChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum NotificationType {
+  CITA_CONFIRMACION
+  CITA_RECORDATORIO
+  CITA_CAMBIO
+  CITA_CANCELACION
+  CITA_PENDIENTE_CONFIRMAR
+  SALDO_PENDIENTE
+  RECUPERAR_CONTRASENA
+}
+
+enum NotificationStatus {
+  PENDIENTE
+  ENVIADO
+  ENTREGADO
+  FALLIDO
+  CONFIRMADO
+  CANCELADO
+  OMITIDO
+}
+
+model NotificationTemplate {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @db.Uuid
+  type           NotificationType
+  channel        NotificationChannel
+  subject        String?
+  body           String
+  active         Boolean             @default(true)
+  updatedById    String?             @db.Uuid
+  updatedAt      DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@unique([organizationId, type, channel])
+}
+
+model Notification {
+  id                String              @id @default(uuid()) @db.Uuid
+  organizationId    String              @db.Uuid
+  patientId         String?             @db.Uuid
+  appointmentId     String?             @db.Uuid
+  type              NotificationType
+  channel           NotificationChannel
+  recipient         String
+  subject           String?
+  body              String
+  status            NotificationStatus  @default(PENDIENTE)
+  scheduledFor      DateTime            @db.Timestamptz(3)
+  attempts          Int                 @default(0)
+  maxAttempts       Int                 @default(3)
+  nextAttemptAt     DateTime?           @db.Timestamptz(3)
+  lockedAt          DateTime?           @db.Timestamptz(3)
+  lastError         String?
+  provider          String?
+  providerMessageId String?
+  /// true si el adaptador era de pruebas: el mensaje NO salió a la red real.
+  testMode          Boolean             @default(false)
+  sentAt            DateTime?           @db.Timestamptz(3)
+  deliveredAt       DateTime?           @db.Timestamptz(3)
+  idempotencyKey    String              @unique
+  createdAt         DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @db.Timestamptz(3)
+
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([status, scheduledFor])
+  @@index([organizationId, createdAt])
+}
