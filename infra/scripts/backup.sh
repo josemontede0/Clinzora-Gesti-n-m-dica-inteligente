@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Respaldo cifrado de MediGest: base de datos (pg_dump formato custom) + archivos privados.
+# Respaldo cifrado de Clinzora: base de datos (pg_dump formato custom) + archivos privados.
 # Requiere: pg_dump, tar, openssl. Variables:
 #   DATABASE_URL        cadena de conexión (postgresql://usuario:clave@host:puerto/base)
 #   BACKUP_PASSPHRASE   frase de cifrado (guárdela fuera del servidor; sin ella no se puede restaurar)

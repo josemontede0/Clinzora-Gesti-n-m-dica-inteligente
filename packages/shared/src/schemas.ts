@@ -582,7 +582,7 @@ export const operationalSettingsSchema = z.object({
 
 export type OperationalSettings = z.infer<typeof operationalSettingsSchema>;
 export const DEFAULT_OPERATIONAL_SETTINGS: OperationalSettings = {
-  productName: 'MediGest',
+  productName: 'Clinzora',
   reminderOffsetsMinutes: [1440, 120],
   notificationChannels: ['EMAIL', 'WHATSAPP'],
   cancellationMinHours: 4,

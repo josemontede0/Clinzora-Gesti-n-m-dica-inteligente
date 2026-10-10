@@ -1,31 +1,50 @@
 @import 'tailwindcss';
 
+/* Identidad Clinzora (clinzora-brand/BRAND.md) */
+:root {
+  --cz-navy: #0B2E4F; /* texto principal, botones primarios oscuros */
+  --cz-teal: #12C2B0; /* acento, estados activos, focus */
+  --cz-blue: #0A6FD1; /* acciones primarias, links */
+  --cz-gray: #5B6B7F; /* texto secundario */
+  --cz-bg: #F5F8FB; /* fondo de la app */
+  --cz-gradient: linear-gradient(135deg, #12C2B0 0%, #0A6FD1 100%);
+}
+
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  /* Azul oscuro: navegación y elementos principales */
-  --color-navy-50: #f1f5fa;
-  --color-navy-100: #dde7f2;
-  --color-navy-200: #bccfe4;
-  --color-navy-500: #2c5a8c;
-  --color-navy-600: #1f4672;
-  --color-navy-700: #173658;
-  --color-navy-800: #112a47;
-  --color-navy-900: #0b1e34;
+  /* Escala navy derivada de --cz-navy (#0B2E4F) */
+  --color-navy-50: #eef4f9;
+  --color-navy-100: #d6e3ef;
+  --color-navy-200: #aec6dd;
+  --color-navy-500: #2b5d8c;
+  --color-navy-600: #1b4a75;
+  --color-navy-700: #123c62;
+  --color-navy-800: #0b2e4f;
+  --color-navy-900: #082238;
 
-  /* Verde azulado: acciones positivas */
-  --color-teal-50: #effaf8;
-  --color-teal-100: #d3f2ec;
-  --color-teal-500: #13a08e;
-  --color-teal-600: #0e8577;
-  --color-teal-700: #0d6b61;
+  /* Escala teal derivada de --cz-teal (#12C2B0) */
+  --color-teal-50: #ecfbf9;
+  --color-teal-100: #cdf4ef;
+  --color-teal-400: #3fd3c4;
+  --color-teal-500: #12c2b0;
+  --color-teal-600: #0ea394;
+  --color-teal-700: #0b8075;
+  --color-teal-800: #096a61;
 
-  --color-surface: #f6f8fb;
-  --color-border: #e3e8ef;
-  --color-muted: #64748b;
+  /* Escala azul de acción derivada de --cz-blue (#0A6FD1) */
+  --color-blue-50: #edf5fd;
+  --color-blue-100: #d3e6fa;
+  --color-blue-500: #0a6fd1;
+  --color-blue-600: #085db0;
+  --color-blue-700: #074c8f;
+
+  --color-surface: #f5f8fb;
+  --color-border: #e1e7ee;
+  --color-muted: #5b6b7f;
 
   --radius-card: 0.875rem;
-  --shadow-card: 0 1px 2px rgb(15 42 71 / 0.04), 0 1px 3px rgb(15 42 71 / 0.06);
+  --shadow-card: 0 1px 2px rgb(11 46 79 / 0.04), 0 1px 3px rgb(11 46 79 / 0.06);
 }
 
 @layer base {

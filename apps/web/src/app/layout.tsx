@@ -1,21 +1,22 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Poppins } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-poppins', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: { default: 'MediGest', template: '%s · MediGest' },
-  description: 'Sistema Integral de Gestión Médica',
+  title: { default: 'Clinzora — Gestión médica inteligente', template: '%s · Clinzora' },
+  description: 'Tecnología para una mejor salud. Pacientes, citas, facturación y seguros médicos en una sola plataforma.',
+  applicationName: 'Clinzora',
   robots: { index: false, follow: false },
 };
 
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#112a47' };
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0B2E4F' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es-DO" className={inter.variable}>
+    <html lang="es-DO" className={poppins.variable}>
       <body>
         {children}
         <Toaster position="top-right" richColors closeButton />

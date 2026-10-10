@@ -63,7 +63,7 @@ export class NotificationsService {
       fecha: formatDate(appt.startsAt, tz),
       hora: formatTime(appt.startsAt, tz, !settings.timeFormat24h),
       ubicacion: [branch.name, branch.address].filter(Boolean).join(', '),
-      centro: settings.productName === 'MediGest' ? org.name : settings.productName,
+      centro: org.name,
     };
     const startIso = appt.startsAt.toISOString();
     const now = Date.now();

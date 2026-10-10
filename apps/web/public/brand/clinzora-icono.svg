@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="Clinzora">
+  <title>Clinzora</title>
+  <defs><linearGradient id="i-g" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#12C2B0"/><stop offset="1" stop-color="#0A6FD1"/></linearGradient></defs>
+  
+  <g transform="translate(0 0) scale(1.0)">
+    <path d="M40 4h20a12 12 0 0 1 12 12v18h16a12 12 0 0 1 12 12v8a12 12 0 0 1-12 12H72v18a12 12 0 0 1-12 12H40a12 12 0 0 1-12-12V66H12A12 12 0 0 1 0 54v-8a12 12 0 0 1 12-12h16V16A12 12 0 0 1 40 4z" fill="url(#i-g)"/>
+    <path d="M10 51h22l7-17 11 36 8-19h32" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

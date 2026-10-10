@@ -1,11 +1,17 @@
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { formatMoney } from '@medigest/shared';
+import { API_ROOT } from '../../config';
+
+/** Logo PNG oficial para documentos (BRAND.md: los PNG son para correos, PDF y documentos). */
+export const BRAND_LOGO = join(API_ROOT, 'assets', 'clinzora-logo-horizontal.png');
 import type { TabularReport } from './reports.service';
 
 export async function toXlsx(report: TabularReport, meta: { organization: string; period: string; generatedBy: string }): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MediGest';
+  wb.creator = 'Clinzora';
   const ws = wb.addWorksheet(report.title.slice(0, 30));
   ws.addRow([`${meta.organization} — ${report.title}`]).font = { bold: true, size: 13 };
   ws.addRow([`Período: ${meta.period}`]);
@@ -13,7 +19,7 @@ export async function toXlsx(report: TabularReport, meta: { organization: string
   ws.addRow([]);
   const header = ws.addRow(report.columns.map((c) => c.label));
   header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  header.eachCell((cell) => (cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2A47' } }));
+  header.eachCell((cell) => (cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B2E4F' } }));
   for (const row of report.rows) {
     ws.addRow(report.columns.map((c) => (c.money && row[c.key] !== '' && row[c.key] != null ? Number(row[c.key]) : row[c.key])));
   }
@@ -39,7 +45,10 @@ export function toPdf(report: TabularReport, meta: { organization: string; perio
 
     const width = doc.page.width - 72;
     const colW = width / report.columns.length;
-    doc.fontSize(14).fillColor('#0F2A47').text(`${meta.organization} — ${report.title}`);
+    if (existsSync(BRAND_LOGO)) {
+      doc.image(BRAND_LOGO, doc.page.width - 36 - 110, 28, { width: 110 });
+    }
+    doc.fontSize(14).fillColor('#0B2E4F').text(`${meta.organization} — ${report.title}`, { width: width - 130 });
     doc.fontSize(9).fillColor('#555').text(`Período: ${meta.period} · Generado por ${meta.generatedBy} el ${new Date().toLocaleString('es-DO')}`);
     doc.moveDown(0.8);
 

@@ -21,3 +21,6 @@ infra/test-mail-outbox/
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+infra/credenciales-demo.xlsx
+~$*
+*.xlsx.tmp

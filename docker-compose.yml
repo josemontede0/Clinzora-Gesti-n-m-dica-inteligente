@@ -1,4 +1,4 @@
-# MediGest — entorno con Docker Compose (desarrollo o servidor propio).
+# Clinzora — entorno con Docker Compose (desarrollo o servidor propio).
 # Uso:  cp .env.docker.example .env.docker  (complete los secretos)  &&  docker compose --env-file .env.docker up -d --build
 # En producción coloque un proxy HTTPS (Caddy/Nginx) delante del servicio "web"; no exponga "api" ni "db".
 services:

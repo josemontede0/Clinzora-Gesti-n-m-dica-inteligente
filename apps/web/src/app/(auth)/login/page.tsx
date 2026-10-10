@@ -2,11 +2,11 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, mfaCodeSchema } from '@medigest/shared';
-import { Activity } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { ClinzoraLogo } from '@/components/clinzora-logo';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/form';
 import { Notice } from '@/components/ui/layout';
@@ -45,9 +45,8 @@ function LoginForm() {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-8 flex items-center gap-2 lg:hidden">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-teal-500 text-white"><Activity className="h-5 w-5" /></span>
-        <span className="text-lg font-semibold text-navy-900">MediGest</span>
+      <div className="mb-8 flex justify-center lg:hidden">
+        <ClinzoraLogo variant="vertical" height={140} priority />
       </div>
       <h2 className="text-2xl font-semibold text-navy-900">{step === 'login' ? 'Iniciar sesión' : 'Verificación en dos pasos'}</h2>
       <p className="mt-1 text-sm text-muted">{step === 'login' ? 'Ingrese con su cuenta institucional.' : 'Escriba el código de 6 dígitos de su aplicación autenticadora.'}</p>

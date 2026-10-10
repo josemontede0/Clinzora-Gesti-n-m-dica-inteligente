@@ -1,4 +1,6 @@
-# MediGest — Sistema Integral de Gestión Médica
+# Clinzora — Gestión médica inteligente
+
+*Tecnología para una mejor salud · Un producto de KonviaRD*
 
 Plataforma para consultorios y centros médicos de República Dominicana. Cubre pacientes, agenda, recepción, expediente clínico, facturación, caja, seguros (ARS), notificaciones, reportes, configuración y auditoría.
 
@@ -29,6 +31,10 @@ Plataforma para consultorios y centros médicos de República Dominicana. Cubre 
 18. [Pendientes antes de producción](#pendientes-antes-de-produccion)
 
 ---
+
+## Identidad visual
+
+La marca está en `apps/web/public/brand/` (SVG oficiales, sin modificar) y los favicons en `apps/web/src/app/`. El componente `<ClinzoraLogo variant theme height />` (`apps/web/src/components/clinzora-logo.tsx`) elige la variante: horizontal sin slogan en el menú, ícono con el menú contraído y en el encabezado móvil, y vertical en el acceso. Las variantes blancas van sobre fondos oscuros. Los colores (`--cz-navy`, `--cz-teal`, `--cz-blue`, `--cz-gray`, `--cz-bg`, `--cz-gradient`) y la fuente Poppins están en `globals.css`. Los PDF usan el PNG `apps/api/assets/clinzora-logo-horizontal.png`.
 
 ## Arquitectura
 

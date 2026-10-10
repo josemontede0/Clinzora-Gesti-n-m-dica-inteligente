@@ -20,8 +20,8 @@ export async function createApp() {
 
   if (!config.isProduction || config.SWAGGER_ENABLED) {
     const doc = new DocumentBuilder()
-      .setTitle('MediGest API')
-      .setDescription('API REST del Sistema Integral de Gestión Médica. Autenticación por cookie de sesión (mg_session). Las peticiones que modifican datos requieren la cabecera X-Requested-With: medigest.')
+      .setTitle('Clinzora API')
+      .setDescription('API REST de Clinzora, gestión médica inteligente (un producto de KonviaRD). Autenticación por cookie de sesión (mg_session). Las peticiones que modifican datos requieren la cabecera X-Requested-With: medigest.')
       .setVersion('0.1.0')
       .addCookieAuth('mg_session')
       .build();

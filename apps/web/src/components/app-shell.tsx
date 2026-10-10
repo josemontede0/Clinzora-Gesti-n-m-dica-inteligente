@@ -3,7 +3,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import type { PermissionCode } from '@medigest/shared';
 import {
-  Activity, BarChart3, Bell, CalendarDays, ChevronsLeft, ChevronsRight, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, UserRound, Users, Wallet, X,
+  BarChart3, Bell, CalendarDays, ChevronsLeft, ChevronsRight, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, UserRound, Users, Wallet, X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { t, type MessageKey } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
+import { ClinzoraLogo } from './clinzora-logo';
 import { PatientSearch } from './patient-search';
 
 interface NavItem {
@@ -35,20 +36,9 @@ const NAV: NavItem[] = [
   { href: '/configuracion', label: 'nav.settings', icon: Settings, any: ['settings.read', 'users.read', 'catalogs.manage', 'insurance.manage', 'fiscal.manage', 'audit.read'], group: 'nav.group.admin' },
 ];
 
-function Brand({ collapsed, name }: { collapsed?: boolean; name: string }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-500 text-white shadow-sm">
-        <Activity className="h-5 w-5" />
-      </span>
-      {!collapsed && (
-        <span className="min-w-0">
-          <span className="block truncate text-[15px] font-semibold text-white">{name}</span>
-          <span className="block text-[11px] text-navy-200">Gestión médica</span>
-        </span>
-      )}
-    </div>
-  );
+function Brand({ collapsed }: { collapsed?: boolean }) {
+  // Sobre el sidebar oscuro se usan las variantes blancas del logo (BRAND.md).
+  return collapsed ? <ClinzoraLogo variant="icono" theme="dark" height={32} priority /> : <ClinzoraLogo variant="horizontal-sin-slogan" theme="dark" height={44} priority />;
 }
 
 function SideNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
@@ -129,14 +119,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.replace('/login');
   };
 
-  const name = me?.productName ?? 'MediGest';
-
   return (
     <div className="min-h-dvh">
       {/* Sidebar escritorio */}
       <aside className={cn('fixed inset-y-0 left-0 z-30 hidden flex-col bg-navy-800 print:!hidden transition-[width] duration-200 lg:flex', collapsed ? 'w-[72px]' : 'w-64')}>
         <div className={cn('flex h-16 items-center border-b border-white/5 px-4', collapsed && 'justify-center px-0')}>
-          <Brand collapsed={collapsed} name={name} />
+          <Brand collapsed={collapsed} />
         </div>
         <SideNav collapsed={collapsed} />
         <button onClick={toggle} className="m-3 flex items-center justify-center gap-2 rounded-lg py-2 text-xs text-navy-200 hover:bg-white/5 hover:text-white" aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}>
@@ -150,7 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="absolute inset-0 bg-navy-900/50" onClick={() => setMobileOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-navy-800 animate-fade-in">
             <div className="flex h-16 items-center justify-between border-b border-white/5 px-4">
-              <Brand name={name} />
+              <Brand />
               <button onClick={() => setMobileOpen(false)} className="rounded-md p-1.5 text-navy-100 hover:bg-white/10" aria-label="Cerrar menú"><X className="h-5 w-5" /></button>
             </div>
             <SideNav onNavigate={() => setMobileOpen(false)} />
@@ -161,6 +149,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className={cn('transition-[padding] duration-200 print:!pl-0', collapsed ? 'lg:pl-[72px]' : 'lg:pl-64')}>
         <header className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-3 border-b border-border bg-white/90 px-4 backdrop-blur sm:px-6">
           <button onClick={() => setMobileOpen(true)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Abrir menú"><Menu className="h-5 w-5" /></button>
+          <span className="shrink-0 lg:hidden"><ClinzoraLogo variant="icono" height={28} /></span>
           {canAny('patients.read') && (
             <PatientSearch compact className="max-w-md flex-1" placeholder={t('header.search')} onSelect={(p) => router.push(`/pacientes/${p.id}`)} />
           )}
@@ -207,6 +196,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <footer className="mx-auto w-full max-w-[1400px] px-4 pb-6 text-xs text-[var(--cz-gray)] sm:px-6 lg:px-8 print:hidden">Clinzora · un producto de KonviaRD</footer>
       </div>
     </div>
   );

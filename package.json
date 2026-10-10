@@ -2,7 +2,7 @@
   "name": "medigest",
   "private": true,
   "version": "0.1.0",
-  "description": "MediGest — Sistema Integral de Gestión Médica",
+  "description": "Clinzora — Gestión médica inteligente (un producto de KonviaRD)",
   "packageManager": "pnpm@11.3.0",
   "engines": {
     "node": ">=20.11"

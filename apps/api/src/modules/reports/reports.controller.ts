@@ -11,7 +11,8 @@ import { CurrentUser, RequireAnyPermission, RequirePermissions } from '../../com
 import { ZQuery } from '../../common/zod.pipe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
-import { toPdf, toXlsx } from './exporters';
+import { existsSync } from 'node:fs';
+import { BRAND_LOGO, toPdf, toXlsx } from './exporters';
 import { ReportFilters, ReportsService, TabularReport } from './reports.service';
 
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -117,14 +118,15 @@ export class ReportsController {
     res.setHeader('Content-Disposition', `attachment; filename="expediente-${patient.recordNumber}.pdf"`);
     res.setHeader('Cache-Control', 'private, no-store');
     doc.pipe(res);
+    if (existsSync(BRAND_LOGO)) doc.image(BRAND_LOGO, doc.page.width - 48 - 100, 40, { width: 100 });
     doc.fontSize(9).fillColor('#900').text('DOCUMENTO CONFIDENCIAL — Información clínica protegida. Uso exclusivo del personal autorizado.', { align: 'center' });
-    doc.moveDown(0.5).fillColor('#0F2A47').fontSize(15).text(org.name);
+    doc.moveDown(0.5).fillColor('#0B2E4F').fontSize(15).text(org.name);
     doc.fontSize(12).text(`Expediente clínico ${patient.recordNumber}`);
     doc.fillColor('#111').fontSize(10).moveDown(0.5)
       .text(`Paciente: ${patient.firstName} ${patient.lastName}`)
       .text(`Documento: ${patient.documentNumber ?? '—'}   Nacimiento: ${formatDate(patient.birthDate?.toISOString())}   Edad: ${ageFrom(patient.birthDate) ?? '—'}`)
       .text(`Generado por ${user.fullName} el ${formatDate(new Date(), tz)}`);
-    const section = (title: string) => doc.moveDown(0.8).fontSize(11).fillColor('#0F2A47').text(title).fillColor('#111').fontSize(9.5);
+    const section = (title: string) => doc.moveDown(0.8).fontSize(11).fillColor('#0B2E4F').text(title).fillColor('#111').fontSize(9.5);
     section('Alergias');
     doc.text(patient.allergies.length ? patient.allergies.map((a) => `${a.substance} (${a.severity.toLowerCase()})${a.reaction ? ': ' + a.reaction : ''}`).join('; ') : 'Sin alergias registradas');
     section('Medicamentos actuales');
