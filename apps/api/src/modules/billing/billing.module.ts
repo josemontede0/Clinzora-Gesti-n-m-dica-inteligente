@@ -7,11 +7,12 @@ import { ChargesService } from './charges.service';
 import { FiscalService } from './fiscal.service';
 import { InvoicesService } from './invoices.service';
 import { PaymentsService } from './payments.service';
+import { ReceiptsService } from './receipts.service';
 
 @Module({
   imports: [PatientsModule],
   controllers: [BillingController],
-  providers: [ChargesService, InvoicesService, PaymentsService, CashService, FiscalService, CardTerminal],
+  providers: [ChargesService, InvoicesService, PaymentsService, CashService, FiscalService, CardTerminal, ReceiptsService],
   exports: [ChargesService, InvoicesService, PaymentsService, FiscalService],
 })
 export class BillingModule {}

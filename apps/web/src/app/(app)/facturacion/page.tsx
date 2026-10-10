@@ -36,7 +36,7 @@ export default function InvoicesPage() {
 
   return (
     <>
-      <PageHeader title="Facturación" description="Facturas emitidas, saldos de pacientes y partes atribuidas a aseguradoras." actions={can('billing.write') && <Button variant="success" asChild><Link href="/facturacion/nueva"><Plus /> Facturar</Link></Button>} />
+      <PageHeader title="Facturación" description="Facturas emitidas, saldos de pacientes y partes atribuidas a aseguradoras." actions={<><Button variant="outline" asChild><Link href="/caja/recibos">Recibos de caja</Link></Button>{can('billing.write') && <Button variant="success" asChild><Link href="/facturacion/nueva"><Plus /> Facturar</Link></Button>}</>} />
       <Card>
         <div className="grid grid-cols-1 gap-3 border-b border-border p-4 sm:grid-cols-2 lg:grid-cols-[1fr_180px_150px_150px_auto]">
           <div className="relative">

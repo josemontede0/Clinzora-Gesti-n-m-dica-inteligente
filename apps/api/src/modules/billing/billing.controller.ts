@@ -1,4 +1,5 @@
-import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import {
   allocateSchema, cashCloseSchema, cashMovementSchema, cashOpenSchema, chargeCreateSchema, creditNoteSchema, fiscalIssueSchema, fiscalSequenceSchema,
@@ -15,6 +16,7 @@ import { ChargesService } from './charges.service';
 import { FiscalService } from './fiscal.service';
 import { InvoicesService } from './invoices.service';
 import { PaymentsService } from './payments.service';
+import { ReceiptsService } from './receipts.service';
 
 const invoiceListQuery = listQuery.extend({
   status: z.string().optional(),
@@ -25,6 +27,8 @@ const invoiceListQuery = listQuery.extend({
   overdue: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
 });
 const paymentListQuery = listQuery.extend({
+  status: z.enum(['COMPLETADO', 'REVERTIDO', 'PENDIENTE', 'FALLIDO']).optional(),
+  mine: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
   patientId: z.uuid().optional(),
   branchId: z.uuid().optional(),
   cashSessionId: z.uuid().optional(),
@@ -51,6 +55,7 @@ export class BillingController {
     private readonly fiscal: FiscalService,
     private readonly patients: PatientsService,
     private readonly notifications: NotificationsService,
+    private readonly receipts: ReceiptsService,
   ) {}
 
   // ── Cargos ──
@@ -141,6 +146,31 @@ export class BillingController {
   @RequireAnyPermission('billing.read', 'payments.write')
   getPayment(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.payments.get(user, id);
+  }
+
+  /**
+   * Recibo en PDF. formato: ticket (80 mm) | carta. modo: imprimir (inline) | descargar (adjunto).
+   * Desde la segunda impresión el PDF sale marcado como REIMPRESIÓN; cada impresión se audita.
+   */
+  @Get('payments/:id/receipt')
+  @RequireAnyPermission('billing.read', 'payments.write')
+  async receipt(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @ZQuery(z.object({ formato: z.enum(['ticket', 'carta']).default('ticket'), modo: z.enum(['imprimir', 'descargar']).default('imprimir') })) q: { formato: 'ticket' | 'carta'; modo: 'imprimir' | 'descargar' },
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.receipts.pdf(user, id, q.formato, q.modo);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${q.modo === 'descargar' ? 'attachment' : 'inline'}; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(buffer);
+  }
+
+  @Get('payments/:id/receipt/prints')
+  @RequireAnyPermission('billing.read', 'payments.write')
+  receiptPrints(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.receipts.prints(user, id);
   }
 
   @Post('payments')

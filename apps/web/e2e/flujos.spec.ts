@@ -53,7 +53,23 @@ test.describe('Flujos principales en la interfaz', () => {
     await page.getByRole('link', { name: 'Cobrar' }).click();
     await expect(page.getByLabel('Monto a aplicar a FAC-000004')).toHaveValue(/^300(.00)?$/);
     await page.getByRole('button', { name: 'Registrar cobro' }).click();
-    await expect(page).toHaveURL(/\/pacientes\//);
+    const dialog = page.getByRole('dialog', { name: /Cobro registrado/ });
+    await expect(dialog).toBeVisible();
+    const receiptNumber = (await dialog.getByRole('heading').textContent())!.match(/REC-\d+/)![0];
+    const downloadPromise = page.waitForEvent('download');
+    await dialog.getByRole('button', { name: 'Descargar' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^recibo-REC-\d+\.pdf$/);
+
+    // Historial de recibos: el cobro aparece y se puede reimprimir (descarga marcada como copia).
+    await page.goto('/caja/recibos');
+    await page.getByLabel('Buscar recibos').fill(receiptNumber);
+    await page.getByRole('cell', { name: receiptNumber }).click();
+    const receipt = page.getByRole('dialog', { name: `Recibo ${receiptNumber}` });
+    await expect(receipt.getByRole('button', { name: 'Reimprimir' })).toBeVisible();
+    const copyPromise = page.waitForEvent('download');
+    await receipt.getByRole('button', { name: 'Descargar' }).click();
+    expect((await copyPromise).suggestedFilename()).toMatch(/-copia\.pdf$/);
 
     await page.goto('/facturacion');
     await page.getByLabel('Buscar facturas').fill('FAC-000004');

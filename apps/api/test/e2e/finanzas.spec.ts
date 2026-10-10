@@ -135,6 +135,40 @@ describe('Finanzas: facturas, pagos, devoluciones y caja', () => {
     expect(voidRes.body.code).toBe('TIENE_NCF');
   });
 
+  it('recibo de caja: PDF en ticket y carta, reimpresión marcada y auditada, búsqueda en el historial', async () => {
+    const inv = await newInvoice('CONS-MG');
+    const card = await prisma.paymentMethod.findFirstOrThrow({ where: { code: 'TCREDITO' } });
+    const pay = await caja.post('/payments', {
+      patientId: ctx.patientId, branchId: ctx.branchId, idempotencyKey: key(),
+      tenders: [{ methodId: ctx.cashId, amount: '500' }, { methodId: card.id, amount: '1500', cardLast4: '4242', cardBrand: 'VISA' }],
+      allocations: [{ invoiceId: inv.id, amount: '2000' }],
+    });
+    expect(pay.status).toBe(201);
+    const id = pay.body.id;
+
+    const first = await caja.get(`/payments/${id}/receipt?formato=ticket&modo=imprimir`).buffer(true).parse((res, cb) => { const d: Buffer[] = []; res.on('data', (x: Buffer) => d.push(x)); res.on('end', () => cb(null, Buffer.concat(d))); });
+    expect(first.status).toBe(200);
+    expect(first.headers['content-type']).toContain('application/pdf');
+    expect(first.headers['content-disposition']).toMatch(/^inline; filename="recibo-REC-\d+\.pdf"/);
+    const pdf = (first.body as Buffer).toString('latin1');
+    expect(pdf.startsWith('%PDF')).toBe(true);
+    expect(pdf).not.toContain('4242424242');
+
+    const second = await caja.get(`/payments/${id}/receipt?formato=carta&modo=descargar`);
+    expect(second.status).toBe(200);
+    expect(second.headers['content-disposition']).toMatch(/^attachment; filename="recibo-REC-\d+-copia\.pdf"/);
+
+    const prints = await caja.get(`/payments/${id}/receipt/prints`);
+    expect(prints.body).toHaveLength(2);
+    expect(prints.body[1].details.copia).toBe(2);
+
+    const list = await caja.get(`/payments?q=${encodeURIComponent(pay.body.number)}`);
+    expect(list.body.items.map((p: { id: string }) => p.id)).toEqual([id]);
+
+    const enfermeria = await login(app, 'enfermeria@ejemplo.test');
+    expect((await enfermeria.get(`/payments/${id}/receipt`)).status).toBe(403);
+  });
+
   it('cierra la caja con el efectivo esperado correcto', async () => {
     const current = (await caja.get('/cash/current')).body.session;
     const s = current.summary;

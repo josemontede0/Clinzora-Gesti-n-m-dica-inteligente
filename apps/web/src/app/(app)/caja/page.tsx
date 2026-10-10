@@ -1,7 +1,7 @@
 'use client';
 
 import { formatDateTime, formatMoney, PAYMENT_METHOD_KIND_LABEL } from '@medigest/shared';
-import { ArrowDownToLine, ArrowUpFromLine, Lock, Receipt, Unlock } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, History, Lock, Receipt, Unlock } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -63,7 +63,16 @@ export default function CashPage() {
 
   return (
     <>
-      <PageHeader title="Caja" description="Apertura, cobros, movimientos y cierre con arqueo." actions={session && can('payments.write') && <Button variant="success" asChild><Link href="/caja/cobrar"><Receipt /> Registrar cobro</Link></Button>} />
+      <PageHeader
+        title="Caja"
+        description="Apertura, cobros, movimientos y cierre con arqueo."
+        actions={
+          <>
+            <Button variant="outline" asChild><Link href="/caja/recibos"><History /> Historial de recibos</Link></Button>
+            {session && can('payments.write') && <Button variant="success" asChild><Link href="/caja/cobrar"><Receipt /> Registrar cobro</Link></Button>}
+          </>
+        }
+      />
       {can('cash.operate') && (current.loading ? <LoadingBlock /> : !session ? (
         <Card className="mb-6 max-w-xl">
           <CardHeader title="Abrir caja" description="Para registrar cobros debe tener una caja abierta en la sucursal." />

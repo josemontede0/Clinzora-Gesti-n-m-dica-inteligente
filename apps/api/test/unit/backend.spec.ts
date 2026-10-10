@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { decryptSecret, encryptSecret, signFileUrl, verifyFileUrl } from '../../src/common/crypto';
 import { redact } from '../../src/common/logger';
 import { claimExpected } from '../../src/modules/insurance/claims.service';
+import { montoEnLetras } from '../../src/modules/billing/number-words';
 
 describe('redacción de logs', () => {
   it('oculta contraseñas, tokens, tarjetas y contenido clínico', () => {
@@ -48,5 +49,23 @@ describe('montos de reclamación', () => {
   });
   it('rechazada: cero', () => {
     expect(claimExpected({ ...base, status: 'RECHAZADA' as never })).toBe(0);
+  });
+});
+
+
+describe('monto en letras para recibos', () => {
+  it.each([
+    [100, 'UN PESO CON 00/100'],
+    [300000, 'TRES MIL PESOS CON 00/100'],
+    [350050, 'TRES MIL QUINIENTOS PESOS CON 50/100'],
+    [2100000, 'VEINTIÚN MIL PESOS CON 00/100'],
+    [10000, 'CIEN PESOS CON 00/100'],
+    [10100, 'CIENTO UN PESOS CON 00/100'],
+    [100000000, 'UN MILLÓN DE PESOS CON 00/100'],
+    [123456789, 'UN MILLÓN DOSCIENTOS TREINTA Y CUATRO MIL QUINIENTOS SESENTA Y SIETE PESOS CON 89/100'],
+    [3100000000, 'TREINTA Y UN MILLONES DE PESOS CON 00/100'],
+    [5, 'CERO PESOS CON 05/100'],
+  ])('%i centavos → %s', (cents, txt) => {
+    expect(montoEnLetras(cents)).toBe(txt);
   });
 });

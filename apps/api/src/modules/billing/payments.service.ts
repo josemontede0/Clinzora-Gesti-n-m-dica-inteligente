@@ -47,10 +47,22 @@ export class PaymentsService {
     return c(p.amount) - c(alloc._sum.amount) - c(refunds._sum.amount);
   }
 
-  async list(user: AuthUser, q: { patientId?: string; branchId?: string; from?: string; to?: string; cashSessionId?: string; page: number; pageSize: number }) {
+  async list(user: AuthUser, q: { q?: string; status?: string; mine?: boolean; patientId?: string; branchId?: string; from?: string; to?: string; cashSessionId?: string; page: number; pageSize: number }) {
     if (q.branchId) assertBranch(user, q.branchId);
+    const words = (q.q ?? '').trim().split(/\s+/).filter(Boolean).slice(0, 4);
     const where: Prisma.PaymentWhereInput = {
       organizationId: user.organizationId,
+      ...(q.status ? { status: q.status as Prisma.EnumPaymentStatusFilter['equals'] } : {}),
+      ...(q.mine ? { createdById: user.id } : {}),
+      ...(words.length
+        ? {
+            OR: [
+              { number: { contains: q.q!.trim().toUpperCase() } },
+              { patient: { recordNumber: q.q!.trim().toUpperCase() } },
+              { patient: { AND: words.map((w) => ({ OR: [{ firstName: { contains: w, mode: 'insensitive' as const } }, { lastName: { contains: w, mode: 'insensitive' as const } }] })) } },
+            ],
+          }
+        : {}),
       ...(q.branchId ? { branchId: q.branchId } : user.allBranches ? {} : { branchId: { in: user.branchIds } }),
       ...(q.patientId ? { patientId: q.patientId } : {}),
       ...(q.cashSessionId ? { cashSessionId: q.cashSessionId } : {}),

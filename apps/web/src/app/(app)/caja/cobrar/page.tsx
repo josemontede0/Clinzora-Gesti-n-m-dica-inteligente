@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PatientSearch, type PatientHit } from '@/components/patient-search';
+import { ReceiptActions } from '@/components/receipts/receipt-actions';
+import { Dialog } from '@/components/ui/dialog';
 import { InvoiceStatusBadge } from '@/components/status';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select, Textarea } from '@/components/ui/form';
@@ -44,6 +46,7 @@ function Collect() {
   const [error, setError] = useState<string | null>(null);
   // Una clave por intento de cobro: si se reintenta por fallo de red, la API no duplica el pago.
   const [key, setKey] = useState(newKey());
+  const [done, setDone] = useState<{ id: string; number: string; unapplied: string; amount: string } | null>(null);
 
   useEffect(() => {
     const id = params.get('paciente');
@@ -80,7 +83,7 @@ function Collect() {
     if (allocTotal > tenderTotal) return setError('Lo aplicado a facturas supera lo recibido');
     setBusy(true);
     try {
-      const p = await api.post<{ id: string; number: string; unapplied: string }>('/payments', {
+      const p = await api.post<{ id: string; number: string; unapplied: string; amount: string }>('/payments', {
         patientId: patient!.id,
         branchId,
         idempotencyKey: key,
@@ -88,9 +91,9 @@ function Collect() {
         tenders: tenders.filter((t) => safeCents(t.amount) > 0).map((t) => ({ methodId: t.methodId, amount: t.amount, reference: t.reference || null, cardLast4: t.cardLast4 || null })),
         allocations: Object.entries(alloc).filter(([, v]) => safeCents(v) > 0).map(([invoiceId, amount]) => ({ invoiceId, amount })),
       });
-      toast.success(`Cobro registrado: recibo ${p.number}${Number(p.unapplied) > 0 ? ` · anticipo ${formatMoney(p.unapplied, cur)}` : ''}`);
+      toast.success(`Cobro registrado: recibo ${p.number}`);
       setKey(newKey());
-      router.push(`/pacientes/${patient!.id}`);
+      setDone({ id: p.id, number: p.number, unapplied: p.unapplied, amount: fromCents(tenderTotal) });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -187,6 +190,26 @@ function Collect() {
           </CardBody>
         </Card>
       </div>
+
+      <Dialog
+        open={!!done}
+        onOpenChange={(o) => { if (!o && done) router.push(`/pacientes/${patient!.id}`); }}
+        title={`Cobro registrado · ${done?.number ?? ''}`}
+        description="Imprima o descargue el recibo para el paciente. Podrá reimprimirlo luego desde Caja > Historial de recibos."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => { setDone(null); setAlloc({}); setTenders([]); setNotes(''); setPatient(null); }}>Nuevo cobro</Button>
+            <Button variant="ghost" onClick={() => router.push(`/pacientes/${patient!.id}`)}>Ir al paciente</Button>
+          </>
+        }
+      >
+        {done && (
+          <div className="space-y-4">
+            <p className="text-sm">Total recibido: <b className="tabular-nums">{formatMoney(done.amount, cur)}</b>{Number(done.unapplied) > 0 && <> · anticipo a favor del paciente: <b className="tabular-nums">{formatMoney(done.unapplied, cur)}</b></>}</p>
+            <ReceiptActions paymentId={done.id} />
+          </div>
+        )}
+      </Dialog>
     </>
   );
 }
