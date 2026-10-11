@@ -6,13 +6,34 @@
 # Uso (como root en el servidor):
 #   DOMAIN=clinzora.konviard.cloud bash vps-setup.sh            # instala o actualiza
 #   DOMAIN=clinzora.konviard.cloud SEED_DEMO=1 bash vps-setup.sh  # además carga datos de demostración (solo si la base está vacía)
+#
+# Demo aislado para un cliente (código, base, procesos, Nginx y secretos propios):
+#   INSTANCE=clinzora-glopez DOMAIN=glopez.konviard.cloud WEB_PORT=3102 API_PORT=3103 #     SEED_DEMO=1 ORG_NAME="Consultorio Dra. ..." bash vps-setup.sh
+#   Para quitarlo: INSTANCE=clinzora-glopez bash vps-setup.sh --remove
 set -euo pipefail
 
+INSTANCE="${INSTANCE:-clinzora}"
+case "$INSTANCE" in clinzora|clinzora-[a-z0-9]*) ;; *) echo "INSTANCE debe ser clinzora o clinzora-<nombre> (minúsculas y números)" >&2; exit 1 ;; esac
+DB="${INSTANCE//-/_}"
+APP=/opt/$INSTANCE
+CONF=/etc/$INSTANCE
+STORAGE=/var/lib/$INSTANCE/storage
+BACKUPS=/var/backups/$INSTANCE
+
+if [ "${1:-}" = "--remove" ]; then
+  [ "$INSTANCE" != "clinzora" ] || { echo "La instancia principal no se elimina con este script." >&2; exit 1; }
+  pm2 delete "$INSTANCE-api" "$INSTANCE-web" 2>/dev/null || true
+  pm2 save --force >/dev/null
+  rm -f "/etc/nginx/sites-enabled/$INSTANCE" "/etc/nginx/sites-available/$INSTANCE" "/etc/cron.d/$INSTANCE-backup"
+  nginx -t && systemctl reload nginx
+  sudo -u postgres dropdb --if-exists "$DB"
+  sudo -u postgres psql -q -c "drop role if exists $DB"
+  rm -rf "$APP" "$CONF" "/var/lib/$INSTANCE" "$BACKUPS"
+  echo "Instancia $INSTANCE eliminada (el certificado HTTPS puede borrarse con: certbot delete --cert-name <dominio>)."
+  exit 0
+fi
+
 DOMAIN="${DOMAIN:?Defina DOMAIN, p. ej. clinzora.konviard.cloud}"
-APP=/opt/clinzora
-CONF=/etc/clinzora
-STORAGE=/var/lib/clinzora/storage
-BACKUPS=/var/backups/clinzora
 WEB_PORT="${WEB_PORT:-3100}"
 API_PORT="${API_PORT:-3101}"
 REPO="${REPO:-https://github.com/josemontede0/Clinzora-Gesti-n-m-dica-inteligente.git}"
@@ -23,7 +44,7 @@ rand() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "${1:-40}"; }
 
 log "Comprobando puertos $WEB_PORT/$API_PORT"
 for p in "$WEB_PORT" "$API_PORT"; do
-  if ss -ltn "sport = :$p" | grep -q LISTEN && ! pm2 jlist 2>/dev/null | grep -q '"name":"clinzora-'; then
+  if ss -ltn "sport = :$p" | grep -q LISTEN && ! pm2 jlist 2>/dev/null | grep -q "\"name\":\"$INSTANCE-api\""; then
     echo "El puerto $p ya está en uso por otro servicio. Elija otro con WEB_PORT/API_PORT." >&2; exit 1
   fi
 done
@@ -57,13 +78,13 @@ fi
 log "Base de datos"
 [ -f "$CONF/db.pass" ] || { rand 32 > "$CONF/db.pass"; chmod 600 "$CONF/db.pass"; }
 DBP="$(cat "$CONF/db.pass")"
-if ! sudo -u postgres psql -tAc "select 1 from pg_roles where rolname='clinzora'" | grep -q 1; then
-  sudo -u postgres psql -q -c "create role clinzora login password '$DBP'"
+if ! sudo -u postgres psql -tAc "select 1 from pg_roles where rolname='$DB'" | grep -q 1; then
+  sudo -u postgres psql -q -c "create role $DB login password '$DBP'"
 fi
-if ! sudo -u postgres psql -tAc "select 1 from pg_database where datname='clinzora'" | grep -q 1; then
-  sudo -u postgres createdb -O clinzora -E UTF8 clinzora
+if ! sudo -u postgres psql -tAc "select 1 from pg_database where datname='$DB'" | grep -q 1; then
+  sudo -u postgres createdb -O "$DB" -E UTF8 "$DB"
 fi
-sudo -u postgres psql -q -d clinzora -c "create extension if not exists btree_gist; create extension if not exists unaccent;"
+sudo -u postgres psql -q -d "$DB" -c "create extension if not exists btree_gist; create extension if not exists unaccent;"
 
 log "Configuración"
 if [ ! -f "$CONF/api.env" ]; then
@@ -73,7 +94,7 @@ PORT=$API_PORT
 API_HOST=127.0.0.1
 WEB_ORIGIN=https://$DOMAIN
 PUBLIC_API_URL=https://$DOMAIN/backend
-DATABASE_URL=postgresql://clinzora:$DBP@127.0.0.1:5432/clinzora?schema=public
+DATABASE_URL=postgresql://$DB:$DBP@127.0.0.1:5432/$DB?schema=public
 SESSION_SECRET=$(rand 48)
 MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)
 FILE_URL_SECRET=$(rand 48)
@@ -81,7 +102,7 @@ SESSION_IDLE_MINUTES=60
 SESSION_ABSOLUTE_HOURS=12
 STORAGE_DIR=$STORAGE
 NOTIFICATIONS_MODE=test
-MAIL_OUTBOX_DIR=/var/lib/clinzora/mail-outbox
+MAIL_OUTBOX_DIR=/var/lib/$INSTANCE/mail-outbox
 PAYMENTS_PROVIDER=none
 FISCAL_PROVIDER=manual
 EOF
@@ -98,11 +119,14 @@ pnpm --filter @medigest/shared build
 pnpm --filter @medigest/api build
 (cd apps/api && npx prisma migrate deploy)
 if [ "${SEED_DEMO:-0}" = "1" ]; then
-  ORGS="$(sudo -u postgres psql -d clinzora -tAc 'select count(*) from "Organization"')"
+  ORGS="$(sudo -u postgres psql -d "$DB" -tAc 'select count(*) from "Organization"')"
   if [ "$ORGS" = "0" ]; then
     log "Cargando datos de demostración (ficticios)"
     (cd apps/api && SEED_ALLOW_PRODUCTION=1 node dist/prisma/seed.js)
     chmod 600 "$APP/infra/seed-credentials.txt"
+    if [ -n "${ORG_NAME:-}" ]; then
+      printf 'update "Organization" set name = :%s, "legalName" = :%s;\n' "'n'" "'n'" | sudo -u postgres psql -q -d "$DB" -v n="$ORG_NAME"
+    fi
   else
     echo "La base ya tiene datos: no se carga la demostración."
   fi
@@ -110,16 +134,16 @@ fi
 API_URL="http://127.0.0.1:$API_PORT" APP_URL="https://$DOMAIN" NEXT_TELEMETRY_DISABLED=1 pnpm --filter @medigest/web build
 
 log "Procesos (PM2)"
-if pm2 describe clinzora-api >/dev/null 2>&1; then
-  APP_URL="https://$DOMAIN" pm2 restart clinzora-api clinzora-web --update-env
+if pm2 describe "$INSTANCE-api" >/dev/null 2>&1; then
+  APP_URL="https://$DOMAIN" pm2 restart "$INSTANCE-api" "$INSTANCE-web" --update-env
 else
-  NODE_ENV=production pm2 start dist/src/main.js --name clinzora-api --cwd "$APP/apps/api" --interpreter "$NODE_BIN" --node-args="--enable-source-maps" --max-memory-restart 600M
-  NODE_ENV=production APP_URL="https://$DOMAIN" pm2 start node_modules/next/dist/bin/next --name clinzora-web --cwd "$APP/apps/web" --interpreter "$NODE_BIN" --max-memory-restart 600M -- start -p "$WEB_PORT" -H 127.0.0.1
+  NODE_ENV=production pm2 start dist/src/main.js --name "$INSTANCE-api" --cwd "$APP/apps/api" --interpreter "$NODE_BIN" --node-args="--enable-source-maps" --max-memory-restart 600M
+  NODE_ENV=production APP_URL="https://$DOMAIN" pm2 start node_modules/next/dist/bin/next --name "$INSTANCE-web" --cwd "$APP/apps/web" --interpreter "$NODE_BIN" --max-memory-restart 600M -- start -p "$WEB_PORT" -H 127.0.0.1
 fi
 pm2 save --force >/dev/null
 
 log "Nginx"
-SITE=/etc/nginx/sites-available/clinzora
+SITE=/etc/nginx/sites-available/$INSTANCE
 if [ ! -f "$SITE" ]; then
   cat > "$SITE" <<EOF
 # Clinzora — $DOMAIN (certbot agrega el bloque HTTPS)
@@ -140,15 +164,15 @@ server {
     }
 }
 EOF
-  ln -sf "$SITE" /etc/nginx/sites-enabled/clinzora
+  ln -sf "$SITE" "/etc/nginx/sites-enabled/$INSTANCE"
 fi
 nginx -t   # si la configuración tiene errores, se detiene aquí sin recargar
 systemctl reload nginx
 
 log "Respaldo diario"
-cat > /etc/cron.d/clinzora-backup <<EOF
-# Respaldo cifrado diario de Clinzora (02:30), conserva 30 días.
-30 2 * * * root cd $APP && DATABASE_URL="\$(grep ^DATABASE_URL= $CONF/api.env | cut -d= -f2-)" BACKUP_PASSPHRASE="\$(cat $CONF/backup.pass)" STORAGE_DIR=$STORAGE BACKUP_DIR=$BACKUPS bash infra/scripts/backup.sh >> /var/log/clinzora-backup.log 2>&1 && find $BACKUPS -name 'medigest-*' -mtime +30 -delete
+cat > "/etc/cron.d/$INSTANCE-backup" <<EOF
+# Respaldo cifrado diario de $INSTANCE (02:30), conserva 30 días.
+30 2 * * * root cd $APP && DATABASE_URL="\$(grep ^DATABASE_URL= $CONF/api.env | cut -d= -f2-)" BACKUP_PASSPHRASE="\$(cat $CONF/backup.pass)" STORAGE_DIR=$STORAGE BACKUP_DIR=$BACKUPS bash infra/scripts/backup.sh >> /var/log/$INSTANCE-backup.log 2>&1 && find $BACKUPS -name 'medigest-*' -mtime +30 -delete
 EOF
 
 log "Verificación"
