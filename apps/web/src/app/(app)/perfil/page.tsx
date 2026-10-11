@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { toast } from 'sonner';
+import { PasskeysCard } from '@/components/passkeys';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/form';
 import { Badge, Card, CardBody, CardHeader, DefinitionList, Notice, PageHeader } from '@/components/ui/layout';
@@ -96,6 +97,7 @@ function Profile() {
             ) : <Button variant="outline" onClick={async () => { try { setSetup(await api.post('/auth/mfa/setup')); } catch (e) { toast.error(errorMessage(e)); } }}>Configurar verificación en dos pasos</Button>}
           </CardBody>
         </Card>
+        <PasskeysCard />
       </div>
     </>
   );

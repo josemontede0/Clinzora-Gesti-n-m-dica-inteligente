@@ -6,7 +6,7 @@ export async function login(page: Page, user: string) {
   await page.goto('/login');
   await page.getByLabel('Correo electrónico').fill(`${user}@ejemplo.test`);
   await page.getByLabel('Contraseña').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/);
 }
 

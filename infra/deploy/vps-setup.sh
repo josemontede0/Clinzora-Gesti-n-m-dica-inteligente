@@ -87,7 +87,8 @@ log "Base de datos"
 [ -f "$CONF/db.pass" ] || { rand 32 > "$CONF/db.pass"; chmod 600 "$CONF/db.pass"; }
 DBP="$(cat "$CONF/db.pass")"
 if ! sudo -u postgres psql -tAc "select 1 from pg_roles where rolname='$DB'" | grep -q 1; then
-  sudo -u postgres psql -q -c "create role $DB login password '$DBP'"
+  # Por entrada estándar: así la contraseña no queda en la bitácora de sudo ni en la lista de procesos.
+  printf "create role %s login password '%s';\n" "$DB" "$DBP" | sudo -u postgres psql -q
 fi
 if ! sudo -u postgres psql -tAc "select 1 from pg_database where datname='$DB'" | grep -q 1; then
   sudo -u postgres createdb -O "$DB" -E UTF8 "$DB"

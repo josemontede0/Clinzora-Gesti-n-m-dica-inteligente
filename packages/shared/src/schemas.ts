@@ -51,6 +51,11 @@ export const loginSchema = z.object({
 
 export const mfaCodeSchema = z.object({ code: z.string().regex(/^\d{6}$/, 'Código de 6 dígitos') });
 
+/** Respuesta WebAuthn del navegador (la valida criptográficamente @simplewebauthn/server). */
+const webAuthnResponse = z.looseObject({ id: z.string().min(1).max(1024), rawId: z.string().max(1024), type: z.literal('public-key'), response: z.looseObject({}) });
+export const passkeyLoginSchema = z.object({ challengeId: z.uuid(), response: webAuthnResponse });
+export const passkeyRegisterSchema = z.object({ challengeId: z.uuid(), response: webAuthnResponse, deviceName: z.string().trim().min(1).max(60) });
+
 export const changePasswordSchema = z
   .object({ currentPassword: z.string().min(1).max(128), newPassword: passwordPolicy })
   .refine((v) => v.currentPassword !== v.newPassword, { message: 'La nueva contraseña debe ser distinta', path: ['newPassword'] });

@@ -1,13 +1,15 @@
-import { Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { changePasswordSchema, forgotPasswordSchema, loginSchema, mfaCodeSchema, resetPasswordSchema } from '@medigest/shared';
+import { changePasswordSchema, forgotPasswordSchema, loginSchema, mfaCodeSchema, passkeyLoginSchema, passkeyRegisterSchema, resetPasswordSchema } from '@medigest/shared';
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
 import type { Request, Response } from 'express';
 import { config } from '../../config';
 import { AuthUser } from '../../common/context';
 import { AllowPending, CurrentUser, Public } from '../../common/decorators';
 import { ApiZBody, ZBody } from '../../common/zod.pipe';
 import { AuthService } from './auth.service';
+import { PasskeyService } from './passkey.service';
 import { SESSION_COOKIE, SessionService } from './session.service';
 
 function setSessionCookie(res: Response, token: string) {
@@ -26,7 +28,53 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
+    private readonly passkeys: PasskeyService,
   ) {}
+
+  // ── Llaves de acceso (Face ID / huella) ──
+
+  @Public()
+  @Throttle({ default: { limit: config.LOGIN_RATE_LIMIT, ttl: 60_000 } })
+  @Post('passkeys/login/options')
+  @HttpCode(200)
+  passkeyLoginOptions() {
+    return this.passkeys.loginOptions();
+  }
+
+  @Public()
+  @Throttle({ default: { limit: config.LOGIN_RATE_LIMIT, ttl: 60_000 } })
+  @Post('passkeys/login')
+  @HttpCode(200)
+  @ApiZBody(passkeyLoginSchema)
+  async passkeyLogin(@ZBody(passkeyLoginSchema) body: { challengeId: string; response: unknown }, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const token = await this.passkeys.login(body.challengeId, body.response as AuthenticationResponseJSON, req.ip, req.get('user-agent'));
+    setSessionCookie(res, token);
+    return { ok: true, mfaRequired: false };
+  }
+
+  @Get('passkeys')
+  listPasskeys(@CurrentUser() user: AuthUser) {
+    return this.passkeys.list(user);
+  }
+
+  @Post('passkeys/register/options')
+  @HttpCode(200)
+  passkeyRegisterOptions(@CurrentUser() user: AuthUser) {
+    return this.passkeys.registerOptions(user);
+  }
+
+  @Post('passkeys/register')
+  @ApiZBody(passkeyRegisterSchema)
+  passkeyRegister(@CurrentUser() user: AuthUser, @ZBody(passkeyRegisterSchema) body: { challengeId: string; response: unknown; deviceName: string }) {
+    return this.passkeys.register(user, body.challengeId, body.response as RegistrationResponseJSON, body.deviceName);
+  }
+
+  @Delete('passkeys/:id')
+  @HttpCode(200)
+  async removePasskey(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    await this.passkeys.remove(user, id);
+    return { ok: true };
+  }
 
   @Public()
   @Throttle({ default: { limit: config.LOGIN_RATE_LIMIT, ttl: 60_000 } })

@@ -132,6 +132,7 @@ model User {
   roles           UserRole[]
   branches        UserBranch[]
   sessions        Session[]
+  passkeys        UserPasskey[]
   resetTokens     PasswordResetToken[]
   professional    MedicalProfessional?
   passwordHistory PasswordHistory[]
@@ -214,6 +215,8 @@ model Session {
   /// SHA-256 del token opaco; el token en claro solo viaja en la cookie httpOnly.
   tokenHash   String    @unique
   mfaVerified Boolean   @default(false)
+  /// Iniciada con llave de acceso (Face ID / huella): cumple la verificación en dos pasos.
+  viaPasskey  Boolean   @default(false)
   ip          String?
   userAgent   String?
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
@@ -1756,4 +1759,30 @@ model DisplayScreen {
   lastSeenAt     DateTime? @db.Timestamptz(3)
   createdById    String    @db.Uuid
   createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+}
+
+/// Llave de acceso WebAuthn (Face ID, Touch ID, huella, Windows Hello) de un usuario.
+model UserPasskey {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      BigInt    @default(0)
+  transports   String[]
+  deviceName   String
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  lastUsedAt   DateTime? @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Desafío WebAuthn de un solo uso (vence a los 5 minutos).
+model WebAuthnChallenge {
+  id        String   @id @default(uuid()) @db.Uuid
+  kind      String
+  challenge String
+  userId    String?  @db.Uuid
+  expiresAt DateTime @db.Timestamptz(3)
 }

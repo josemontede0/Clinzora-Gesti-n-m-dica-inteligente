@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ClinzoraLogo } from '@/components/clinzora-logo';
+import { PasskeyLoginButton } from '@/components/passkeys';
 import { InstallAppButton } from '@/components/pwa';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/form';
@@ -64,6 +65,8 @@ function LoginForm() {
             <Input id="password" type="password" autoComplete="current-password" {...login.register('password')} aria-invalid={!!login.formState.errors.password} />
           </Field>
           <Button type="submit" className="w-full" loading={login.formState.isSubmitting}>Entrar</Button>
+          <div className="flex items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-border" />o<span className="h-px flex-1 bg-border" /></div>
+          <PasskeyLoginButton onSuccess={() => router.replace(next)} onError={setError} />
           <p className="text-center text-sm">
             <Link href="/recuperar" className="text-navy-600 hover:underline">¿Olvidó su contraseña?</Link>
           </p>

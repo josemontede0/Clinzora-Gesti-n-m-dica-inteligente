@@ -16,11 +16,11 @@ export interface ResolvedSession {
 export class SessionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, mfaVerified: boolean, ip?: string, userAgent?: string) {
+  async create(userId: string, mfaVerified: boolean, ip?: string, userAgent?: string, viaPasskey = false) {
     const token = randomToken(32);
     const expiresAt = new Date(Date.now() + config.SESSION_ABSOLUTE_HOURS * 3600_000);
     const session = await this.prisma.session.create({
-      data: { userId, tokenHash: sha256(token), mfaVerified, ip, userAgent: userAgent?.slice(0, 250), expiresAt },
+      data: { userId, tokenHash: sha256(token), mfaVerified, viaPasskey, ip, userAgent: userAgent?.slice(0, 250), expiresAt },
     });
     return { token, session };
   }
@@ -59,7 +59,8 @@ export class SessionService {
     for (const ur of u.roles) for (const rp of ur.role.permissions) permissions.add(rp.permission.code);
     // Defensa: solo se reconocen permisos del catálogo.
     for (const p of permissions) if (!(ALL_PERMISSIONS as string[]).includes(p)) permissions.delete(p);
-    const mfaRequired = config.MFA_ENFORCE === true && u.roles.some((r) => r.role.requiresMfa);
+    // Una sesión iniciada con llave de acceso (dispositivo + biometría) ya cumple la verificación en dos pasos.
+    const mfaRequired = config.MFA_ENFORCE === true && u.roles.some((r) => r.role.requiresMfa) && !session.viaPasskey;
 
     const user: AuthUser = {
       id: u.id,

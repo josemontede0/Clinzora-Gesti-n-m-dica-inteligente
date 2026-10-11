@@ -1,5 +1,6 @@
 'use client';
 
+import { PasskeySuggestion } from '@/components/passkeys';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import type { PermissionCode } from '@medigest/shared';
 import {
@@ -198,7 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DropdownMenu.Root>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8"><PasskeySuggestion />{children}</main>
         <footer className="mx-auto w-full max-w-[1400px] px-4 pb-6 text-xs text-[var(--cz-gray)] sm:px-6 lg:px-8 print:hidden">Clinzora · un producto de KonviaRD</footer>
       </div>
     </div>
