@@ -73,6 +73,7 @@ export function errorMessage(e: unknown): string {
     if (e.errors?.length) return e.errors.map((x) => x.message).join('. ');
     return e.message;
   }
+  if (e instanceof Error && e.message) return e.message;
   return 'Ocurrió un error inesperado';
 }
 

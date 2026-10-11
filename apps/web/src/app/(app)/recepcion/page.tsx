@@ -1,7 +1,7 @@
 'use client';
 
 import { formatDate, formatTime } from '@medigest/shared';
-import { CalendarPlus, Clock, Trash2 } from 'lucide-react';
+import { CalendarPlus, Clock, Megaphone, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
@@ -10,6 +10,7 @@ import { AppointmentActions } from '@/components/appointments/appointment-action
 import { AppointmentDialog } from '@/components/appointments/appointment-dialog';
 import type { Appointment } from '@/components/appointments/types';
 import { PatientSearch, type PatientHit } from '@/components/patient-search';
+import { useStation, type QueueTicket } from '@/components/queue/use-station';
 import { AppointmentStatusBadge } from '@/components/status';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -47,6 +48,30 @@ function Reception() {
   const [wNotes, setWNotes] = useState('');
   const [wFrom, setWFrom] = useState('');
   const [wTo, setWTo] = useState('');
+
+  // Turnos del día (código por cita) para mostrarlos junto a cada paciente y poder llamarlos.
+  const board = useApi<{ waiting: QueueTicket[]; inProgress: QueueTicket[] }>(can('queue.manage') && branchId ? '/queue/board' : null, { branchId });
+  const ticketsByAppt = useMemo(() => {
+    const m = new Map<string, QueueTicket>();
+    for (const t of [...(board.data?.waiting ?? []), ...(board.data?.inProgress ?? [])]) if (t.appointmentId) m.set(t.appointmentId, t);
+    return m;
+  }, [board.data]);
+  const [station, setStation] = useStation();
+  const callPatient = async (appointmentId: string) => {
+    let st = station.station.trim();
+    if (!st) {
+      st = (window.prompt('¿Desde qué puesto llama? (p. ej. Consultorio 1)') ?? '').trim();
+      if (!st) return;
+      setStation({ ...station, station: st });
+    }
+    try {
+      const t = await api.post<QueueTicket>(`/queue/appointments/${appointmentId}/call`, { station: st });
+      toast.success(`Llamando ${t.code} a ${st}`);
+      void board.reload();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
 
   const grouped = useMemo(() => GROUPS.map((g) => ({ ...g, items: (data ?? []).filter((a) => g.statuses.includes(a.status)) })), [data]);
 
@@ -95,9 +120,19 @@ function Reception() {
                                 {a.checkedInAt && ` · llegó ${formatTime(a.checkedInAt, tz, !me?.timeFormat24h)}`}
                               </p>
                             </button>
-                            <AppointmentStatusBadge status={a.status} />
+                            <span className="flex items-center gap-2">
+                              {ticketsByAppt.get(a.id) && <Badge tone="navy">Turno {ticketsByAppt.get(a.id)!.code}</Badge>}
+                              <AppointmentStatusBadge status={a.status} />
+                            </span>
                           </div>
-                          {g.key !== 'cerradas' && <AppointmentActions appt={a} onChanged={reload} compact />}
+                          {g.key !== 'cerradas' && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {a.status === 'EN_ESPERA' && can('queue.manage') && (
+                                <Button size="sm" variant="outline" onClick={() => callPatient(a.id)}><Megaphone /> Llamar</Button>
+                              )}
+                              <AppointmentActions appt={a} onChanged={() => { reload(); void board.reload(); }} compact />
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>

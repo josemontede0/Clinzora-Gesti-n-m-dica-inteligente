@@ -46,6 +46,13 @@ Por privacidad, el service worker (`apps/web/public/sw.js`) **solo guarda archiv
 
 Al registrar un cobro se ofrece **Imprimir** o **Descargar** el recibo en PDF, en ticket de 80 mm (impresora térmica) o en carta. **Caja > Historial de recibos** permite buscar por número, paciente o expediente, con filtros de fecha y estado, y **reimprimir**. Desde la segunda impresión el PDF sale marcado como *REIMPRESIÓN (copia N)*, y cada impresión queda en la auditoría (quién, cuándo, formato). Un pago revertido sale marcado como *REVERTIDO — SIN VALOR*. El recibo incluye el monto en letras e indica que no es un comprobante fiscal.
 
+## Turnos y pantalla de recepción
+
+- **Turnos** (menú Operación): cada área (Consulta `C`, Caja `P`, Información `I`, configurables) tiene su fila con numeración diaria (`C-001`, `C-002`…). Se emiten turnos para pacientes con o sin expediente, con prioridad (embarazada, adulto mayor…) y ticket de 80 mm.
+- Cada usuario indica **su puesto** ("Consultorio 3", "Caja 1") y las áreas que atiende, y pulsa **Llamar siguiente**: sale primero el prioritario y luego por orden de llegada; dos puestos nunca reciben el mismo turno. Puede volver a llamar, atender, finalizar, derivar a otra área, devolver a la fila o marcar que no se presentó.
+- Las citas se integran solas: al registrar la llegada en *Sala de espera* el paciente recibe su turno en el área que "recibe pacientes con cita"; al iniciar la consulta pasa a *atendiendo* y al firmar a *atendido*. Desde Sala de espera también se puede **Llamar** al paciente.
+- **Pantalla de recepción**: en *Configuración > Turnos y pantallas* se crea una pantalla y se obtiene un enlace secreto (se muestra una sola vez; se puede regenerar o revocar). Se abre en el navegador del TV, en pantalla completa, sin iniciar sesión. Muestra el turno llamado en grande con el puesto, aviso sonoro y voz, últimos llamados y cuántos esperan por área. Por privacidad solo muestra el código; opcionalmente el nombre abreviado ("Ana P.").
+
 ## Arquitectura
 
 Monorepo con pnpm:

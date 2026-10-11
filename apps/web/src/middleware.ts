@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC = ['/login', '/recuperar', '/restablecer'];
+// /pantalla: pantalla de turnos de la recepción (se autoriza con el token secreto del enlace, no con sesión).
+const PUBLIC = ['/login', '/recuperar', '/restablecer', '/pantalla'];
 
 /**
  * Origen público de la aplicación. Detrás de un proxy (Nginx) `req.nextUrl` lleva el host interno

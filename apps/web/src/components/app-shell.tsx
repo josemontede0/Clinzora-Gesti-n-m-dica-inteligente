@@ -3,7 +3,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import type { PermissionCode } from '@medigest/shared';
 import {
-  BarChart3, Bell, CalendarDays, ChevronsLeft, ChevronsRight, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, UserRound, Users, Wallet, X,
+  BarChart3, Bell, CalendarDays, Ticket, ChevronsLeft, ChevronsRight, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, UserRound, Users, Wallet, X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -27,6 +27,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/', label: 'nav.dashboard', icon: LayoutDashboard, any: ['reports.operational', 'reports.financial', 'appointments.read'], group: 'nav.group.operation' },
   { href: '/recepcion', label: 'nav.reception', icon: ClipboardList, any: ['appointments.read'], group: 'nav.group.operation' },
+  { href: '/turnos', label: 'nav.queue', icon: Ticket, any: ['queue.manage'], group: 'nav.group.operation' },
   { href: '/agenda', label: 'nav.agenda', icon: CalendarDays, any: ['appointments.read'], group: 'nav.group.operation' },
   { href: '/pacientes', label: 'nav.patients', icon: Users, any: ['patients.read'], group: 'nav.group.operation' },
   { href: '/facturacion', label: 'nav.billing', icon: FileText, any: ['billing.read'], group: 'nav.group.finance' },

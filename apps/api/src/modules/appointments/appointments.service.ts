@@ -12,6 +12,7 @@ import { assertBranch, found } from '../../common/scope';
 import { logger } from '../../common/logger';
 import { PrismaService, Tx } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { QueueService } from '../queue/queue.service';
 import { SettingsService } from '../settings/settings.service';
 
 const ACTIVE: AppointmentStatus[] = ['SOLICITADA', 'PENDIENTE_CONFIRMACION', 'CONFIRMADA', 'EN_ESPERA', 'EN_CONSULTA', 'COMPLETADA'];
@@ -39,6 +40,7 @@ export class AppointmentsService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly settings: SettingsService,
+    private readonly queue: QueueService,
   ) {}
 
   private async branchTz(organizationId: string, branchId: string) {
@@ -281,6 +283,8 @@ export class AppointmentsService {
       if (to === 'COMPLETADA' || to === 'EN_CONSULTA') await tx.patient.update({ where: { id: appt.patientId }, data: { lastVisitAt: new Date() } });
       await this.audit.log({ action: 'CITA_ESTADO', entity: 'Appointment', entityId: id, branchId: appt.branchId, details: { de: appt.status, a: to, motivo: reason } }, tx);
     });
+    // El turno de la sala de espera acompaña el estado de la cita (no debe impedir la operación si falla).
+    await this.queue.onAppointmentStatus(id, to, user.id).catch((e) => logger.error(`Turno no sincronizado: ${(e as Error).message}`, undefined, 'Appointments'));
     if (to === 'CANCELADA') await this.notify(id, 'cancelada');
     if (to === 'CONFIRMADA' && appt.status !== 'EN_ESPERA') await this.notify(id, 'confirmada');
     return this.get(user, id);

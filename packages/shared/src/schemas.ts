@@ -594,4 +594,53 @@ export const DEFAULT_OPERATIONAL_SETTINGS: OperationalSettings = {
   dataRetentionYears: 10,
 };
 
+// ─────────── Turnos ───────────
+
+export const QUEUE_STATUS_LABEL: Record<string, string> = {
+  ESPERANDO: 'En espera',
+  LLAMADO: 'Llamado',
+  ATENDIENDO: 'Atendiendo',
+  ATENDIDO: 'Atendido',
+  NO_SE_PRESENTO: 'No se presentó',
+  CANCELADO: 'Cancelado',
+};
+
+export const queueAreaSchema = z.object({
+  branchId: uuid,
+  code: z.string().trim().toUpperCase().regex(/^[A-Z]{1,3}$/, 'Prefijo de 1 a 3 letras (p. ej. C, CAJ)'),
+  name: trimmed(60).min(2),
+  autoCheckin: z.boolean().default(false),
+  sortOrder: z.coerce.number().int().min(0).max(99).default(0),
+  active: z.boolean().default(true),
+});
+
+export const queueTicketCreateSchema = z.object({
+  branchId: uuid,
+  areaId: uuid,
+  patientId: optionalUuid,
+  visitorName: optionalText(80),
+  priority: z.boolean().default(false),
+  priorityReason: optionalText(80),
+});
+
+export const queueCallSchema = z.object({
+  branchId: uuid,
+  /** Áreas que atiende el puesto (vacío = todas). */
+  areaIds: z.array(uuid).default([]),
+  station: trimmed(40).min(1, 'Indique el puesto (p. ej. Consultorio 1)'),
+});
+
+export const queueActionSchema = z.object({
+  action: z.enum(['volver_a_llamar', 'atender', 'finalizar', 'no_se_presento', 'cancelar', 'devolver_a_espera']),
+  station: optionalText(40),
+});
+
+export const queueTransferSchema = z.object({ areaId: uuid });
+
+export const displayScreenSchema = z.object({
+  branchId: uuid,
+  name: trimmed(60).min(2),
+  showNames: z.boolean().default(false),
+});
+
 export { z };

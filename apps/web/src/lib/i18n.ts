@@ -5,6 +5,7 @@
 const es = {
   'nav.dashboard': 'Panel',
   'nav.reception': 'Sala de espera',
+  'nav.queue': 'Turnos',
   'nav.agenda': 'Agenda',
   'nav.patients': 'Pacientes',
   'nav.billing': 'Facturación',

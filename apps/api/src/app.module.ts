@@ -22,6 +22,7 @@ import { InsuranceModule } from './modules/insurance/insurance.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { FilesModule } from './modules/files/files.module';
 import { UsersModule } from './modules/users/users.module';
+import { QueueModule } from './modules/queue/queue.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -42,6 +43,7 @@ import { HealthController } from './health.controller';
     InsuranceModule,
     ReportsModule,
     FilesModule,
+    QueueModule,
   ],
   controllers: [HealthController],
   providers: [

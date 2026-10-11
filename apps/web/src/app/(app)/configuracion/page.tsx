@@ -4,6 +4,7 @@ import { AuditTab, FiscalTab, RolesTab, UsersTab } from '@/components/settings/a
 import { BranchesTab } from '@/components/settings/branches-tab';
 import { OrganizationTab } from '@/components/settings/organization-tab';
 import { ProfessionalsTab } from '@/components/settings/professionals-tab';
+import { QueueTab } from '@/components/settings/queue-tab';
 import { ServicesTab } from '@/components/settings/services-tab';
 import { PageHeader } from '@/components/ui/layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,6 +18,7 @@ export default function SettingsPage() {
     { key: 'sucursales', label: 'Sucursales y caja', show: canAny('settings.read', 'catalogs.manage'), el: <BranchesTab /> },
     { key: 'medicos', label: 'Médicos y horarios', show: canAny('catalogs.manage', 'schedules.manage'), el: <ProfessionalsTab /> },
     { key: 'servicios', label: 'Servicios, tarifas y ARS', show: canAny('catalogs.manage', 'insurance.manage'), el: <ServicesTab /> },
+    { key: 'turnos', label: 'Turnos y pantallas', show: can('queue.configure'), el: <QueueTab /> },
     { key: 'fiscal', label: 'Fiscal', show: can('fiscal.manage'), el: <FiscalTab /> },
     { key: 'usuarios', label: 'Usuarios', show: can('users.read'), el: <UsersTab /> },
     { key: 'roles', label: 'Roles y permisos', show: can('users.read'), el: <RolesTab /> },

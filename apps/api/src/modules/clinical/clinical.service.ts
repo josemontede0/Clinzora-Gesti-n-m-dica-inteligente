@@ -12,6 +12,7 @@ import { BusinessError } from '../../common/errors';
 import { assertBranch, found } from '../../common/scope';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChargesService } from '../billing/charges.service';
+import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class ClinicalService {
@@ -20,6 +21,7 @@ export class ClinicalService {
     private readonly access: ClinicalAccessService,
     private readonly audit: AuditService,
     private readonly charges: ChargesService,
+    private readonly queue: QueueService,
   ) {}
 
   private async encounterFor(user: AuthUser, id: string) {
@@ -72,7 +74,7 @@ export class ClinicalService {
       if (!['EN_ESPERA', 'EN_CONSULTA'].includes(appt.status)) {
         throw new BusinessError('Registre primero la llegada del paciente (estado "En espera")', 'SIN_LLEGADA');
       }
-      return this.prisma.$transaction(async (tx) => {
+      const created = await this.prisma.$transaction(async (tx) => {
         const enc = await tx.medicalEncounter.create({
           data: {
             organizationId: user.organizationId, branchId: appt.branchId, patientId: appt.patientId, professionalId: user.professionalId!,
@@ -87,6 +89,8 @@ export class ClinicalService {
         await this.audit.log({ action: 'ENCUENTRO_INICIADO', entity: 'MedicalEncounter', entityId: enc.id, branchId: appt.branchId, details: { cita: appt.id } }, tx);
         return enc;
       });
+      await this.queue.onAppointmentStatus(appt.id, 'EN_CONSULTA', user.id).catch(() => undefined);
+      return created;
     }
 
     if (!input.branchId) throw new BusinessError('Indique la sucursal del encuentro');
@@ -261,6 +265,7 @@ export class ClinicalService {
       }
       await this.audit.log({ action: 'ENCUENTRO_FIRMADO', entity: 'MedicalEncounter', entityId: encounterId, branchId: enc.branchId }, tx);
     });
+    if (appt) await this.queue.onAppointmentStatus(appt.id, 'COMPLETADA', user.id).catch(() => undefined);
     let charge = null;
     if (appt?.serviceId) charge = await this.charges.createFromEncounter(user, enc as MedicalEncounter, appt.serviceId, appt.patientInsuranceId);
     return { ok: true, chargeId: charge?.id ?? null };

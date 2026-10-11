@@ -1669,3 +1669,91 @@ model Notification {
   @@index([status, scheduledFor])
   @@index([organizationId, createdAt])
 }
+
+// ───────────────────────────── Turnos (sala de espera) ─────────────────────────────
+
+/// Área de atención con su propia fila de turnos (Consulta, Caja, Información…). Prefijo del código: C-012.
+model QueueArea {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  branchId       String   @db.Uuid
+  code           String
+  name           String
+  /// Recibe automáticamente un turno cuando un paciente con cita registra su llegada.
+  autoCheckin    Boolean  @default(false)
+  sortOrder      Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  tickets QueueTicket[]
+
+  @@unique([branchId, code])
+}
+
+enum QueueTicketStatus {
+  ESPERANDO
+  LLAMADO
+  ATENDIENDO
+  ATENDIDO
+  NO_SE_PRESENTO
+  CANCELADO
+}
+
+model QueueTicket {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @db.Uuid
+  branchId          String            @db.Uuid
+  areaId            String            @db.Uuid
+  /// Fecha local (YYYY-MM-DD) de la sucursal: la numeración se reinicia cada día.
+  day               String
+  number            Int
+  code              String
+  status            QueueTicketStatus @default(ESPERANDO)
+  priority          Boolean           @default(false)
+  priorityReason    String?
+  patientId         String?           @db.Uuid
+  appointmentId     String?           @db.Uuid
+  /// Nombre para quien llega sin expediente (opcional).
+  visitorName       String?
+  /// Puesto que llamó el turno (Consultorio 1, Caja 2…).
+  station           String?
+  calledCount       Int               @default(0)
+  calledAt          DateTime?         @db.Timestamptz(3)
+  calledById        String?           @db.Uuid
+  servedAt          DateTime?         @db.Timestamptz(3)
+  finishedAt        DateTime?         @db.Timestamptz(3)
+  transferredFromId String?           @db.Uuid
+  createdById       String            @db.Uuid
+  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(3)
+
+  area QueueArea @relation(fields: [areaId], references: [id])
+
+  @@unique([areaId, day, number])
+  @@index([branchId, day, status])
+  @@index([appointmentId])
+}
+
+/// Contador diario de turnos por área (se incrementa con UPDATE … RETURNING).
+model QueueCounter {
+  areaId String @db.Uuid
+  day    String
+  last   Int    @default(0)
+
+  @@id([areaId, day])
+}
+
+/// Pantalla de turnos para la recepción. Se abre con un enlace secreto (solo se guarda su hash), revocable.
+model DisplayScreen {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  branchId       String    @db.Uuid
+  name           String
+  tokenHash      String    @unique
+  /// Por privacidad, por defecto solo se muestra el código del turno.
+  showNames      Boolean   @default(false)
+  active         Boolean   @default(true)
+  lastSeenAt     DateTime? @db.Timestamptz(3)
+  createdById    String    @db.Uuid
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+}

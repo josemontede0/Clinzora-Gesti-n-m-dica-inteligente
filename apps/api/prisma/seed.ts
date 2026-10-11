@@ -186,6 +186,18 @@ async function main() {
   const register = await prisma.cashRegister.create({ data: { organizationId: O, branchId: branch.id, name: 'Caja 1' } });
   await prisma.cashRegister.create({ data: { organizationId: O, branchId: branch2.id, name: 'Caja Norte' } });
 
+  // ── Turnos: áreas por sucursal ──
+  for (const b of [branch, branch2]) {
+    await prisma.queueArea.createMany({
+      data: [
+        { organizationId: O, branchId: b.id, code: 'C', name: 'Consulta', autoCheckin: true, sortOrder: 1 },
+        { organizationId: O, branchId: b.id, code: 'P', name: 'Caja', sortOrder: 2 },
+        { organizationId: O, branchId: b.id, code: 'I', name: 'Información', sortOrder: 3 },
+      ],
+      skipDuplicates: true,
+    });
+  }
+
   // ── Plantillas de notificación ──
   await prisma.notificationTemplate.createMany({
     data: DEFAULT_TEMPLATES.flatMap((t) => (['EMAIL', 'WHATSAPP', 'SMS'] as const).map((channel) => ({ organizationId: O, type: t.type, channel, subject: channel === 'EMAIL' ? t.subject : null, body: t.body }))),

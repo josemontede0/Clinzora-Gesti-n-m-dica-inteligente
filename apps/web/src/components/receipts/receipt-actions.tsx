@@ -35,7 +35,11 @@ export function useReceiptFormat(): [ReceiptFormat, (f: ReceiptFormat) => void] 
  * Si el navegador no permite imprimir el iframe, abre el PDF en una pestaña nueva.
  */
 export function printReceipt(paymentId: string, format: ReceiptFormat) {
-  const url = backendUrl(`/payments/${paymentId}/receipt`, { formato: format, modo: 'imprimir' });
+  printPdf(backendUrl(`/payments/${paymentId}/receipt`, { formato: format, modo: 'imprimir' }));
+}
+
+/** Abre el diálogo de impresión del navegador para un PDF del mismo origen. */
+export function printPdf(url: string) {
   const frame = document.createElement('iframe');
   frame.style.position = 'fixed';
   frame.style.right = '0';

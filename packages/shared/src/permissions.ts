@@ -44,6 +44,9 @@ export const PERMISSIONS = {
   'insurance.write': { module: 'seguros', description: 'Registrar afiliaciones, validaciones y autorizaciones' },
   'insurance.claims': { module: 'seguros', description: 'Gestionar reclamaciones, glosas y pagos de ARS' },
   'insurance.manage': { module: 'seguros', description: 'Administrar aseguradoras, planes y tarifas' },
+  // Turnos
+  'queue.manage': { module: 'turnos', description: 'Emitir y llamar turnos de la sala de espera' },
+  'queue.configure': { module: 'turnos', description: 'Configurar áreas de turnos y pantallas de recepción' },
   // Notificaciones y reportes
   'notifications.read': { module: 'notificaciones', description: 'Ver registro de notificaciones' },
   'notifications.manage': { module: 'notificaciones', description: 'Plantillas y reglas de recordatorio' },
@@ -71,6 +74,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     description: 'Configuración, usuarios, catálogos y auditoría',
     requiresMfa: true,
     permissions: [
+      'queue.configure',
       'settings.read', 'settings.manage', 'users.read', 'users.manage', 'roles.manage', 'audit.read',
       'branches.all', 'catalogs.manage', 'schedules.manage', 'patients.read', 'patients.write', 'patients.merge',
       'appointments.read', 'notifications.read', 'notifications.manage', 'insurance.read', 'insurance.manage',
@@ -83,6 +87,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     description: 'Pacientes, citas y admisión',
     requiresMfa: false,
     permissions: [
+      'queue.manage',
       'patients.read', 'patients.write', 'patients.documents', 'appointments.read', 'appointments.write',
       'appointments.checkin', 'insurance.read', 'insurance.write', 'notifications.read',
     ],
@@ -93,6 +98,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     description: 'Expediente clínico de sus pacientes',
     requiresMfa: true,
     permissions: [
+      'queue.manage',
       'patients.read', 'patients.documents', 'appointments.read', 'appointments.checkin', 'clinical.read',
       'clinical.write', 'clinical.sign', 'clinical.vitals', 'billing.read',
     ],
@@ -102,7 +108,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     name: 'Enfermería',
     description: 'Signos vitales y seguimiento',
     requiresMfa: false,
-    permissions: ['patients.read', 'appointments.read', 'appointments.checkin', 'clinical.read', 'clinical.vitals'],
+    permissions: ['queue.manage', 'patients.read', 'appointments.read', 'appointments.checkin', 'clinical.read', 'clinical.vitals'],
   },
   {
     code: 'CAJA',
@@ -110,6 +116,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     description: 'Facturación, cobros y caja (sin notas clínicas)',
     requiresMfa: false,
     permissions: [
+      'queue.manage',
       'patients.read', 'appointments.read', 'billing.read', 'billing.write', 'payments.write', 'cash.operate',
       'insurance.read',
     ],
@@ -140,6 +147,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     description: 'Indicadores y supervisión',
     requiresMfa: true,
     permissions: [
+      'queue.manage', 'queue.configure',
       'patients.read', 'appointments.read', 'billing.read', 'billing.discount', 'billing.void', 'payments.refund',
       'cash.supervise', 'insurance.read', 'reports.operational', 'reports.financial', 'reports.export',
       'branches.all', 'audit.read', 'notifications.read', 'users.read', 'settings.read',
