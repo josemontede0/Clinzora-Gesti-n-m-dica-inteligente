@@ -33,9 +33,17 @@ if [ "${1:-}" = "--remove" ]; then
   exit 0
 fi
 
+# Lo que se definió al crear la instancia (dominio, puertos, modo) se recuerda en $CONF/instance.env,
+# así que para actualizar basta con INSTANCE=... (las variables pasadas explícitamente tienen prioridad).
+if [ -f "$CONF/instance.env" ]; then
+  while IFS='=' read -r k v; do
+    case "$k" in DOMAIN|WEB_PORT|API_PORT|MODE|ORG_NAME|ADMIN_EMAIL|ADMIN_NAME) [ -n "${!k:-}" ] || printf -v "$k" '%s' "$v" ;; esac
+  done < "$CONF/instance.env"
+fi
 DOMAIN="${DOMAIN:?Defina DOMAIN, p. ej. clinzora.konviard.cloud}"
 WEB_PORT="${WEB_PORT:-3100}"
 API_PORT="${API_PORT:-3101}"
+MODE="${MODE:-produccion}"
 REPO="${REPO:-https://github.com/josemontede0/Clinzora-Gesti-n-m-dica-inteligente.git}"
 BRANCH="${BRANCH:-main}"
 
@@ -86,6 +94,11 @@ if ! sudo -u postgres psql -tAc "select 1 from pg_database where datname='$DB'" 
 fi
 sudo -u postgres psql -q -d "$DB" -c "create extension if not exists btree_gist; create extension if not exists unaccent;"
 
+# Se guarda al principio: si la instalación falla a mitad, "actualizar" la retoma con los mismos datos.
+printf 'DOMAIN=%s\nWEB_PORT=%s\nAPI_PORT=%s\nMODE=%s\nORG_NAME=%s\nADMIN_EMAIL=%s\nADMIN_NAME=%s\n' \
+  "$DOMAIN" "$WEB_PORT" "$API_PORT" "$MODE" "${ORG_NAME:-}" "${ADMIN_EMAIL:-}" "${ADMIN_NAME:-}" > "$CONF/instance.env"
+chmod 600 "$CONF/instance.env"
+
 log "Configuración"
 if [ ! -f "$CONF/api.env" ]; then
   cat > "$CONF/api.env" <<EOF
@@ -127,8 +140,24 @@ if [ "${SEED_DEMO:-0}" = "1" ]; then
     if [ -n "${ORG_NAME:-}" ]; then
       printf 'update "Organization" set name = :%s, "legalName" = :%s;\n' "'n'" "'n'" | sudo -u postgres psql -q -d "$DB" -v n="$ORG_NAME"
     fi
+    # Resultado legible por el panel maestro: usuarios demo y contraseña común.
+    "$NODE_BIN" -e '
+      const t = require("fs").readFileSync(process.argv[1], "utf8");
+      const password = (t.match(/Contraseña común: (\S+)/) || [])[1];
+      const users = [...t.matchAll(/^\s+(\S+@\S+)\s+(.+)$/gm)].map((m) => ({ email: m[1], role: m[2].trim(), password }));
+      console.log("@@RESULT " + JSON.stringify({ users, note: "Datos ficticios de demostración." }));
+    ' "$APP/infra/seed-credentials.txt"
   else
     echo "La base ya tiene datos: no se carga la demostración."
+  fi
+fi
+if [ "${BOOTSTRAP:-0}" = "1" ]; then
+  ORGS="$(sudo -u postgres psql -d "$DB" -tAc 'select count(*) from "Organization"')"
+  if [ "$ORGS" = "0" ]; then
+    log "Instalación inicial vacía para el cliente"
+    (cd apps/api && node dist/prisma/bootstrap.js)
+  else
+    echo "La base ya tiene datos: no se hace la instalación inicial."
   fi
 fi
 API_URL="http://127.0.0.1:$API_PORT" APP_URL="https://$DOMAIN" NEXT_TELEMETRY_DISABLED=1 pnpm --filter @medigest/web build
@@ -152,6 +181,9 @@ server {
     listen [::]:80;
     server_name $DOMAIN;
     client_max_body_size 20M;
+    # Instancia suspendida o reiniciándose: página propia en vez del error de Nginx.
+    error_page 502 503 504 /clinzora-no-disponible.html;
+    location = /clinzora-no-disponible.html { root /usr/local/lib/clinzora; internal; }
 
     location / {
         proxy_pass http://127.0.0.1:$WEB_PORT;
